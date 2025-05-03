@@ -51,7 +51,7 @@ Small businesses (like print shops, cafes, lobbies) or individuals needing a sim
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/puckawayjeff/showgo.git](https://github.com/puckawayjeff/showgo.git)
+    git clone https://github.com/puckawayjeff/showgo.git
     cd showgo
     ```
 2.  **Create and activate a Python virtual environment:**
