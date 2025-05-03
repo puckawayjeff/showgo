@@ -1,60 +1,90 @@
-# **ShowGo \- Web-Based Photo Slideshow Kiosk**
+# ShowGo - Web-Based Photo Slideshow Kiosk
 
 ShowGo is a simple, self-hosted web application designed to display a configurable photo slideshow on a dedicated screen (like a TV connected to a PC running a browser in kiosk mode). It provides a web interface for uploading images and configuring slideshow settings, widgets (time, weather, RSS), and watermarks.
 
-Built with Python, Flask, and Tailwind CSS. Designed to be deployed easily using Docker.
+Built with Python, Flask, Pillow, and Tailwind CSS. Designed to be deployed easily using Docker.
 
-## **Target Audience**
+## Target Audience
 
 Small businesses (like print shops, cafes, lobbies) or individuals needing a simple, remotely manageable digital signage solution for photos.
 
-## **Features (Planned)**
+## Features
 
-* Web-based slideshow view suitable for full-screen display.  
-* Password-protected web interface for configuration.  
-* Image uploading and management (view thumbnails, delete).  
-* Configurable slideshow settings:  
-  * Image display duration  
-  * Transition effects (starting with fade)  
-  * Image order (sequential or random)  
-* Optional Widgets:  
-  * Current Time  
-  * Local Weather (via OpenWeatherMap or similar API)  
-  * RSS Feed Headlines  
-* Optional Watermark overlay (text or image) with movement to prevent burn-in.  
-* Docker container for easy deployment.
+* Web-based slideshow view suitable for full-screen display.
+* Password-protected web interface for configuration.
+* Image uploading (multiple files) and management (view thumbnails, delete selected).
+* Thumbnail generation for preview.
+* Configurable slideshow settings:
+    * Image display duration
+    * Transition effects (currently fade)
+    * Image order (sequential or random)
+* Optional Widgets:
+    * Current Time (updates every second)
+    * Local Weather (via OpenWeatherMap or similar API - requires API key)
+    * RSS Feed Headlines (cycles through recent headlines)
+* Optional Watermark overlay (text) with configurable position and optional movement to prevent burn-in.
+* Designed for Docker deployment (Phase 4).
 
-## **Project Status**
+## Project Status
 
-* **Phase 1: Basic Setup & Core Backend (Complete)**  
-  * Project structure created.  
-  * Flask app initialized with basic routes.  
-  * Configuration loading/saving via config.json.  
-  * Basic HTTP Authentication added to /config route.  
-* Phase 2: Configuration Interface Frontend (Next)
+* **Phase 1: Basic Setup & Core Backend (Complete)**
+    * Project structure created.
+    * Flask app initialized with basic routes.
+    * Configuration loading/saving via `config.json`.
+    * Basic HTTP Authentication added to `/config` route.
+* **Phase 2: Configuration Interface Frontend (Complete)**
+    * HTML structure for config page created (`config.html`).
+    * Tailwind CSS integration.
+    * Image upload form implemented.
+    * Thumbnail display grid implemented.
+    * Image deletion functionality implemented.
+    * Forms for all slideshow, widget, and overlay settings implemented.
+    * Configuration saving implemented.
+* **Phase 3: Slideshow Display Page (Complete)**
+    * Backend data preparation for slideshow (images, config, weather, RSS).
+    * HTML structure for slideshow page created (`slideshow.html`).
+    * Route for serving full-size uploaded images.
+    * JavaScript logic for image cycling, transitions (fade), time widget updates, RSS cycling, and watermark display/movement.
+* Phase 4: Dockerization & Refinement (Next)
 
-## **Setup & Running (Development)**
+## Setup & Running (Development)
 
-1. **Clone the repository:**  
-   git clone https://github.com/puckawayjeff/showgo.git  
-   cd showgo
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/puckawayjeff/showgo.git](https://github.com/puckawayjeff/showgo.git)
+    cd showgo
+    ```
+2.  **Create and activate a Python virtual environment:**
+    ```bash
+    python -m venv venv
+    # Windows
+    venv\Scripts\activate
+    # macOS/Linux
+    source venv/bin/activate
+    ```
+    *(Note: The `venv` directory should not be committed to Git. Ensure it's listed in your `.gitignore` file.)*
 
-2. **Create and activate a Python virtual environment:**  
-   python \-m venv venv  
-   \# Windows  
-   venv\\Scripts\\activate  
-   \# macOS/Linux  
-   source venv/bin/activate
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+    *(If `requirements.txt` is not up-to-date, run `pip install Flask Flask-HTTPAuth Pillow Werkzeug requests feedparser`)*
 
-   *(Note: The venv directory should not be committed to Git. Ensure it's listed in your .gitignore file if you have one.)*  
-3. **Install dependencies:**  
-   pip install \-r requirements.txt
+4.  **(Optional) Configure API Keys/Feeds:** Edit `config/config.json` (created on first run) to add your OpenWeatherMap API key or change the default RSS feed URL if desired.
 
-4. **Run the Flask development server:**  
-   python app.py
-
-5. Access the application in your browser:  
-   * Slideshow Viewer: http://\<your-ip\>:5000/  
-   * Config Page: http://\<your-ip\>:5000/config (Requires authentication \- default: admin/password)
+5.  **Run the Flask development server:**
+    ```bash
+    python app.py
+    ```
+6.  Access the application in your browser:
+    * Slideshow Viewer: `http://<your-ip>:5000/`
+    * Config Page: `http://<your-ip>:5000/config` (Requires authentication - default: `admin`/`password`)
 
 *(More details on configuration and deployment will be added as the project progresses)*
+
+## Deployment Notes
+
+* When deploying to production, use a proper WSGI server like Gunicorn or uWSGI instead of the Flask development server.
+* Ensure the production web server (e.g., Nginx) is configured to handle large request bodies if large batch uploads are expected (e.g., `client_max_body_size` in Nginx).
+* **Security:** Change the default admin password. Move sensitive credentials (auth, API keys) out of `config.json` and into environment variables or a more secure configuration management system. Set a strong, random `app.secret_key`.
+* Run the application within a Docker container for easier deployment and dependency management (see `Dockerfile`). Ensure volumes are correctly mounted for `config/`, `uploads/`, and `thumbnails/` directories for persistence.
