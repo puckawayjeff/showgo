@@ -1,1 +1,23 @@
+# Virtual Environment
+venv/
+__pycache__/
+
+# Uploaded Media & Thumbnails
+uploads/
+thumbnails/
+
+# Configuration
 config/config.json
+
+# Compiled Python files
+*.pyc
+*.pyo
+*.pyd
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor files
+.vscode/
+.idea/
