@@ -26,7 +26,12 @@ Small businesses (like print shops, cafes, lobbies) or individuals needing a sim
 
 ## **Project Status**
 
-* Phase 1: Basic Setup & Core Backend (In Progress)
+* **Phase 1: Basic Setup & Core Backend (Complete)**  
+  * Project structure created.  
+  * Flask app initialized with basic routes.  
+  * Configuration loading/saving via config.json.  
+  * Basic HTTP Authentication added to /config route.  
+* Phase 2: Configuration Interface Frontend (Next)
 
 ## **Setup & Running (Development)**
 
@@ -41,16 +46,15 @@ Small businesses (like print shops, cafes, lobbies) or individuals needing a sim
    \# macOS/Linux  
    source venv/bin/activate
 
+   *(Note: The venv directory should not be committed to Git. Ensure it's listed in your .gitignore file if you have one.)*  
 3. **Install dependencies:**  
-   pip install \-r requirements.txt \# (requirements.txt will be created later)  
-   \# For now:  
-   pip install Flask
+   pip install \-r requirements.txt
 
 4. **Run the Flask development server:**  
    python app.py
 
 5. Access the application in your browser:  
-   * Slideshow Viewer: http://localhost:5000/  
-   * Config Page: http://localhost:5000/config (will require authentication later)
+   * Slideshow Viewer: http://\<your-ip\>:5000/  
+   * Config Page: http://\<your-ip\>:5000/config (Requires authentication \- default: admin/password)
 
 *(More details on configuration and deployment will be added as the project progresses)*
