@@ -127,4 +127,8 @@ Small businesses or individuals needing a simple, remotely manageable digital si
     * Improve UI/UX (loading indicators, better feedback).
     * Add more slideshow transition options.
     * Enhance error handling and logging.
-    * Implement password changing functionality.1
+    * Implement password changing functionality.
+
+## License
+
+This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0). See the [LICENSE.md](LICENSE.md) file for details.
