@@ -1,16 +1,16 @@
 # ShowGo - Web-Based Photo Slideshow Kiosk
 
-ShowGo is a simple, self-hosted web application designed to display a configurable photo slideshow on a dedicated screen (like a TV connected to a PC running a browser in kiosk mode). It provides a web interface for uploading images and configuring slideshow settings, widgets (time, weather, RSS), and watermarks.
+ShowGo is a simple, self-hosted web application designed to display a configurable photo slideshow on a dedicated screen (like a TV connected to a PC, or even an old tablet, running a browser in kiosk mode). It provides a web interface for uploading images and configuring slideshow settings, widgets (time, weather, RSS), and watermarks.
 
 Built with Python, Flask, Pillow, and Tailwind CSS. Designed to be deployed easily using Docker.
 
 ## Target Audience
 
-Small businesses (like print shops, cafes, lobbies) or individuals needing a simple, remotely manageable digital signage solution for photos.
+Small businesses or individuals needing a simple, remotely manageable digital signage solution for photos. Also suitable for repurposing old Android/iOS tablets as dedicated photo frames or simple displays.
 
 ## Features
 
-* Web-based slideshow view suitable for full-screen display.
+* Web-based slideshow view suitable for full-screen display on PCs or tablets.
 * Password-protected web interface for configuration.
 * Image uploading (multiple files) and management (view thumbnails, delete selected).
 * Thumbnail generation for preview.
@@ -45,13 +45,17 @@ Small businesses (like print shops, cafes, lobbies) or individuals needing a sim
     * HTML structure for slideshow page created (`slideshow.html`).
     * Route for serving full-size uploaded images.
     * JavaScript logic for image cycling, transitions (fade), time widget updates, RSS cycling, and watermark display/movement.
-* Phase 4: Dockerization & Refinement (Next)
+* **Phase 4: Dockerization & Refinement (Complete)**
+    * `requirements.txt` created.
+    * `Dockerfile` created for building container image with Gunicorn.
+    * `.dockerignore` file created.
+* Phase 5: Refinements (Ongoing/Next Steps)
 
 ## Setup & Running (Development)
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/puckawayjeff/showgo.git
+    git clone [https://github.com/puckawayjeff/showgo.git](https://github.com/puckawayjeff/showgo.git)
     cd showgo
     ```
 2.  **Create and activate a Python virtual environment:**
@@ -68,8 +72,6 @@ Small businesses (like print shops, cafes, lobbies) or individuals needing a sim
     ```bash
     pip install -r requirements.txt
     ```
-    *(If `requirements.txt` is not up-to-date, run `pip install Flask Flask-HTTPAuth Pillow Werkzeug requests feedparser`)*
-
 4.  **(Optional) Configure API Keys/Feeds:** Edit `config/config.json` (created on first run) to add your OpenWeatherMap API key or change the default RSS feed URL if desired.
 
 5.  **Run the Flask development server:**
@@ -80,11 +82,27 @@ Small businesses (like print shops, cafes, lobbies) or individuals needing a sim
     * Slideshow Viewer: `http://<your-ip>:5000/`
     * Config Page: `http://<your-ip>:5000/config` (Requires authentication - default: `admin`/`password`)
 
-*(More details on configuration and deployment will be added as the project progresses)*
+## Running with Docker (Recommended for Deployment)
+
+1.  **Build the Docker image:**
+    ```bash
+    docker build -t showgo-app .
+    ```
+2.  **Run the Docker container:**
+    ```bash
+    docker run -d \
+      -p 5000:5000 \
+      --name showgo-instance \
+      -v ./config:/app/config \
+      -v ./uploads:/app/uploads \
+      -v ./thumbnails:/app/thumbnails \
+      showgo-app
+    ```
+    * This maps the host ports and mounts local directories for configuration and image persistence.
 
 ## Deployment Notes
 
-* When deploying to production, use a proper WSGI server like Gunicorn or uWSGI instead of the Flask development server.
-* Ensure the production web server (e.g., Nginx) is configured to handle large request bodies if large batch uploads are expected (e.g., `client_max_body_size` in Nginx).
+* When deploying to production, use a proper WSGI server like Gunicorn or uWSGI (included in Dockerfile).
+* If using a reverse proxy like Nginx in front of the container, ensure it is configured to handle large request bodies if large batch uploads are expected (e.g., `client_max_body_size` in Nginx).
 * **Security:** Change the default admin password. Move sensitive credentials (auth, API keys) out of `config.json` and into environment variables or a more secure configuration management system. Set a strong, random `app.secret_key`.
-* Run the application within a Docker container for easier deployment and dependency management (see `Dockerfile`). Ensure volumes are correctly mounted for `config/`, `uploads/`, and `thumbnails/` directories for persistence.
+* For tablet displays, use a kiosk browser app or the device's built-in guided access/screen pinning features for a full-screen experience. Ensure display sleep settings are disabled.
