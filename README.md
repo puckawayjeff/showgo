@@ -49,7 +49,7 @@ Small businesses or individuals needing a simple, remotely manageable digital si
     * `requirements.txt` created.
     * `Dockerfile` created for building container image with Gunicorn.
     * `.dockerignore` file created.
-* Phase 5: Refinements (Ongoing/Next Steps)
+* Phase 5: Refinements & Future Enhancements (Next)
 
 ## Setup & Running (Development)
 
@@ -106,3 +106,25 @@ Small businesses or individuals needing a simple, remotely manageable digital si
 * If using a reverse proxy like Nginx in front of the container, ensure it is configured to handle large request bodies if large batch uploads are expected (e.g., `client_max_body_size` in Nginx).
 * **Security:** Change the default admin password. Move sensitive credentials (auth, API keys) out of `config.json` and into environment variables or a more secure configuration management system. Set a strong, random `app.secret_key`.
 * For tablet displays, use a kiosk browser app or the device's built-in guided access/screen pinning features for a full-screen experience. Ensure display sleep settings are disabled.
+
+## Future Enhancements (Planned Long-Term Goals)
+
+1.  **Video Support:**
+    * Allow uploading common video formats (MP4, WebM).
+    * Add configuration options to mute video audio or select media type (photos, videos, both).
+    * Implement video playback using the HTML5 `<video>` tag in the slideshow.
+    * Handle transitions after video completion.
+2.  **Night Mode:**
+    * Add option to dim the display during specific hours.
+    * Configure schedule manually (start/end times) or automatically based on local sunset/sunrise (requires location).
+    * Implement dimming using a CSS overlay with configurable opacity.
+3.  **Collections / Tagging:**
+    * Implement a database (e.g., SQLite) to store image metadata and collection assignments.
+    * Add UI in the config page to create/manage collections and tag uploaded images.
+    * Create dynamic routes (e.g., `/collection/<id>`) to display slideshows containing only images from a specific collection.
+    * Allow multiple displays to show different collections from the same ShowGo instance.
+4.  **Refinements:**
+    * Improve UI/UX (loading indicators, better feedback).
+    * Add more slideshow transition options.
+    * Enhance error handling and logging.
+    * Implement password changing functionality.1
