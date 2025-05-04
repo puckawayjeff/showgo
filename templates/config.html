@@ -1,403 +1,353 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShowGo Configuration</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    /* Simple style for visual grouping */
-    .config-section {
-      border: 1px solid #e2e8f0;
-      /* gray-200 */
-      border-radius: 0.5rem;
-      /* rounded-lg */
-      padding: 1.5rem;
-      /* p-6 */
-      margin-bottom: 1.5rem;
-      /* mb-6 */
-      background-color: white;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-      /* shadow-sm */
-    }
-
-    .config-section h2 {
-      font-size: 1.25rem;
-      /* text-xl */
-      font-weight: 600;
-      /* font-semibold */
-      margin-bottom: 1rem;
-      /* mb-4 */
-      border-bottom: 1px solid #e2e8f0;
-      /* border-b border-gray-200 */
-      padding-bottom: 0.5rem;
-      /* pb-2 */
-    }
-
-    /* Style for file input */
-    input[type="file"]::file-selector-button {
-      margin-right: 0.5rem;
-      display: inline-block;
-      font-weight: 600;
-      color: #4a5568;
-      background-color: #f7fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.375rem;
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-
-    input[type="file"]::file-selector-button:hover {
-      background-color: #edf2f7;
-    }
-
-    /* Thumbnail Styles */
-    .thumbnail-item {
-      position: relative;
-      border: 1px solid #d1d5db;
-      border-radius: 0.375rem;
-      overflow: hidden;
-      background-color: #f9fafb;
-    }
-
-    .thumbnail-item img {
-      display: block;
-      width: 100%;
-      height: 100px;
-      object-fit: cover;
-    }
-
-    .thumbnail-item .filename {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background-color: rgba(0, 0, 0, 0.6);
-      color: white;
-      font-size: 0.75rem;
-      padding: 0.25rem 0.5rem;
-      text-align: center;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .thumbnail-item input[type="checkbox"] {
-      position: absolute;
-      top: 0.5rem;
-      right: 0.5rem;
-      width: 1.25rem;
-      height: 1.25rem;
-      cursor: pointer;
-    }
-
-    /* Basic form input styling */
-    .form-input {
-      display: block;
-      width: 100%;
-      padding: 0.5rem 0.75rem;
-      font-size: 0.875rem;
-      line-height: 1.25rem;
-      border: 1px solid #d1d5db;
-      border-radius: 0.375rem;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.075);
-      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    }
-
-    .form-input:focus {
-      border-color: #4f46e5;
-      /* indigo-600 */
-      outline: 0;
-      box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
-    }
-
-    .form-select {
-      /* For dropdowns */
-      display: block;
-      width: 100%;
-      padding: 0.5rem 2.5rem 0.5rem 0.75rem;
-      font-size: 0.875rem;
-      line-height: 1.25rem;
-      border: 1px solid #d1d5db;
-      border-radius: 0.375rem;
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-      background-repeat: no-repeat;
-      background-position: right 0.5rem center;
-      background-size: 1.5em 1.5em;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      appearance: none;
-    }
-
-    .form-checkbox {
-      width: 1rem;
-      height: 1rem;
-      margin-right: 0.5rem;
-      border-radius: 0.25rem;
-      border-color: #d1d5db;
-      color: #4f46e5;
-      /* indigo-600 */
-      vertical-align: middle;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 0.25rem;
-      font-weight: 500;
-      color: #374151;
-      /* gray-700 */
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShowGo Configuration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Dark Mode Theme + Styles from previous version */
+        body { background-color: #1f2937; color: #d1d5db; font-family: sans-serif; }
+        h1, h2, h3 { color: #f3f4f6; }
+        .config-section { border: 1px solid #4b5563; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; background-color: #374151; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.15); }
+        .config-section h2 { border-bottom: 1px solid #4b5563; font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; padding-bottom: 0.5rem;}
+        label { color: #d1d5db; display: block; margin-bottom: 0.25rem; font-weight: 500; }
+        .form-input, .form-select { display: block; width: 100%; padding: 0.5rem 0.75rem; font-size: 0.875rem; line-height: 1.25rem; border: 1px solid #4b5563; border-radius: 0.375rem; background-color: #4b5563; color: #f3f4f6; box-shadow: inset 0 1px 2px rgba(0,0,0,0.2); transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; }
+        .form-input::placeholder, .form-select::placeholder { color: #9ca3af; }
+        .form-input:focus, .form-select:focus { border-color: #6366f1; outline: 0; box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.35); background-color: #505a6b; }
+        .form-select { padding-right: 2.5rem; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.5em 1.5em; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        .form-checkbox, .form-radio { width: 1rem; height: 1rem; margin-right: 0.5rem; border-radius: 0.25rem; border-color: #6b7280; color: #6366f1; background-color: #4b5563; vertical-align: middle; }
+        .form-checkbox:checked, .form-radio:checked { background-color: #6366f1; }
+        .form-checkbox:focus, .form-radio:focus { ring: 2px; ring-offset-2; ring-offset-gray-800; ring-indigo-500; }
+        input[type="file"]::file-selector-button { margin-right: 0.5rem; display: inline-block; font-weight: 600; color: #e5e7eb; background-color: #4b5563; border: 1px solid #6b7280; border-radius: 0.375rem; padding: 0.5rem 1rem; cursor: pointer; transition: background-color 0.2s; }
+        input[type="file"]::file-selector-button:hover { background-color: #5a6679; }
+        input[type="file"] { background-color: #4b5563; border-color: #4b5563; color: #d1d5db;}
+        .thumbnail-item { border: 1px solid #4b5563; background-color: #4b5563; position: relative; border-radius: 0.375rem; overflow: hidden; }
+        .thumbnail-item img { display: block; width: 100%; height: 100px; object-fit: cover; }
+        .thumbnail-item .filename { position: absolute; bottom: 0; left: 0; right: 0; background-color: rgba(0, 0, 0, 0.7); color: white; font-size: 0.75rem; padding: 0.25rem 0.5rem; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .thumbnail-item input[type="checkbox"] { position: absolute; top: 0.5rem; right: 0.5rem; width: 1.25rem; height: 1.25rem; cursor: pointer; background-color: rgba(255, 255, 255, 0.7); border-color: #6b7280;}
+        .thumbnail-item input[type="checkbox"]:checked { background-color: #ef4444; }
+        .btn { font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2); transition: background-color 0.15s ease-in-out; display: inline-block; }
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover { background-color: #4338ca; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-danger:hover { background-color: #b91c1c; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .flash-success { background-color: #052e16; border: 1px solid #166534; color: #a7f3d0; }
+        .flash-error { background-color: #450a0a; border: 1px solid #b91c1c; color: #fecaca; }
+        .flash-warning { background-color: #422006; border: 1px solid #c2410c; color: #fed7aa; }
+        .flash-info { background-color: #1e1b4b; border: 1px solid #4338ca; color: #c7d2fe; }
+        .password-change-forced { border: 2px solid #d97706; }
+    </style>
 </head>
+<body class="bg-gray-800 text-gray-300 font-sans">
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <h1 class="text-3xl font-bold mb-6 text-gray-100">ShowGo Configuration</h1>
 
-<body class="bg-gray-100 font-sans">
-  <div class="container mx-auto p-4 md:p-8 max-w-4xl">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">ShowGo Configuration</h1>
-
-    <div id="status-message" class="mb-4">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-      {% for category, message in messages %}
-      <div class="p-4 rounded-md mb-4
-                        {% if category == 'success' %} bg-green-100 border border-green-400 text-green-700
-                        {% elif category == 'error' %} bg-red-100 border border-red-400 text-red-700
-                        {% else %} bg-blue-100 border border-blue-400 text-blue-700 {% endif %}" role="alert">
-        {{ message }}
-      </div>
-      {% endfor %}
-      {% endif %}
-      {% endwith %}
-    </div>
-
-    <div class="config-section">
-      <h2>Image Management</h2>
-      <div class="mb-6 pb-6 border-b border-gray-200">
-        <h3 class="text-lg font-medium mb-3">Upload New Images</h3>
-        <form action="{{ url_for('upload_image') }}" method="POST" enctype="multipart/form-data">
-          <div class="mb-4">
-            <label for="image_files">Select image files:</label>
-            <input type="file" name="image_files" id="image_files" multiple
-              accept="image/png, image/jpeg, image/gif, image/webp" required
-              class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
-            <p class="mt-1 text-xs text-gray-500">Accepted formats: PNG, JPG, GIF, WEBP. You can select multiple files.
-            </p>
-          </div>
-          <button type="submit"
-            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out">
-            Upload Images
-          </button>
-        </form>
-      </div>
-      <div>
-        <h3 class="text-lg font-medium mb-3">Current Images</h3>
-        <form id="delete-form" action="{{ url_for('delete_images') }}" method="POST">
-          <div id="thumbnail-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 mb-4">
-            {% if images %}
-            {% for image_filename in images %}
-            <div class="thumbnail-item">
-              <input type="checkbox" name="selected_images" value="{{ image_filename }}"
-                class="form-checkbox rounded text-red-600 focus:ring-red-500">
-              {% set thumb_base, _ = image_filename.rsplit('.', 1) %}
-              {% set thumb_filename_png = thumb_base + '.png' %}
-              <img src="{{ url_for('serve_thumbnail', filename=thumb_filename_png) }}" alt="{{ image_filename }}"
-                loading="lazy">
-              <div class="filename" title="{{ image_filename }}">{{ image_filename }}</div>
-            </div>
-            {% endfor %}
-            {% else %}
-            <p class="text-gray-500 col-span-full">No images uploaded yet.</p>
-            {% endif %}
-          </div>
-          {% if images %}
-          <div id="delete-form-container" class="mt-4 text-right">
-            <button type="submit" id="delete-button"
-              class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md shadow-sm transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled>
-              Delete Selected (<span id="selected-count">0</span>)
-            </button>
-          </div>
-          {% endif %}
-        </form>
-      </div>
-    </div>
-
-    <form action="{{ url_for('save_settings') }}" method="POST">
-
-      <div class="config-section">
-        <h2>Slideshow Settings</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label for="duration_seconds">Image Duration (seconds):</label>
-            <input type="number" id="duration_seconds" name="duration_seconds" min="1" step="1" required
-              value="{{ config.slideshow.duration_seconds | default(10) }}" class="form-input">
-          </div>
-          <div>
-            <label for="transition_effect">Transition Effect:</label>
-            <select id="transition_effect" name="transition_effect" class="form-select">
-              <option value="fade" {% if config.slideshow.transition_effect=='fade' %}selected{% endif %}>Fade</option>
-              <option value="slide" {% if config.slideshow.transition_effect=='slide' %}selected{% endif %}>Slide
-                (Basic)</option>
-              <option value="none" {% if config.slideshow.transition_effect=='none' %}selected{% endif %}>None</option>
-            </select>
-          </div>
-          <div>
-            <label>Image Order:</label>
-            <div class="mt-2 space-x-4">
-              <label class="inline-flex items-center">
-                <input type="radio" name="image_order" value="sequential" class="form-radio text-indigo-600" {% if
-                  config.slideshow.image_order=='sequential' %}checked{% endif %}>
-                <span class="ml-2">Sequential</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="radio" name="image_order" value="random" class="form-radio text-indigo-600" {% if
-                  config.slideshow.image_order=='random' %}checked{% endif %}>
-                <span class="ml-2">Random</span>
-              </label>
-            </div>
-          </div>
+        <div id="status-message" class="mb-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    {% set alert_class = 'flash-info' %} {# Default #}
+                    {% if category == 'success' %}{% set alert_class = 'flash-success' %}{% endif %}
+                    {% if category == 'error' %}{% set alert_class = 'flash-error' %}{% endif %}
+                    {% if category == 'warning' %}{% set alert_class = 'flash-warning' %}{% endif %}
+                    <div class="p-4 rounded-md mb-4 {{ alert_class }}" role="alert">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
         </div>
-      </div>
 
-      <div class="config-section">
-        <h2>Widgets & Overlay</h2>
-        <div class="mb-6 pb-6 border-b border-gray-200">
-          <h3 class="text-lg font-medium mb-3">Watermark</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-            <div class="md:col-span-2">
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="watermark_enabled" value="true" class="form-checkbox" {% if
-                  config.watermark.enabled %}checked{% endif %}>
-                <span class="ml-2">Enable Watermark</span>
-              </label>
-            </div>
-            <div>
-              <label for="watermark_text">Watermark Text:</label>
-              <input type="text" id="watermark_text" name="watermark_text"
-                value="{{ config.watermark.text | default('') }}" class="form-input">
-            </div>
-            <div>
-              <label for="watermark_position">Position:</label>
-              <select id="watermark_position" name="watermark_position" class="form-select">
-                <option value="top-left" {% if config.watermark.position=='top-left' %}selected{% endif %}>Top Left
-                </option>
-                <option value="top-right" {% if config.watermark.position=='top-right' %}selected{% endif %}>Top Right
-                </option>
-                <option value="bottom-left" {% if config.watermark.position=='bottom-left' %}selected{% endif %}>Bottom
-                  Left</option>
-                <option value="bottom-right" {% if config.watermark.position=='bottom-right' %}selected{% endif %}>
-                  Bottom Right</option>
-                <option value="center" {% if config.watermark.position=='center' %}selected{% endif %}>Center</option>
-              </select>
-            </div>
-            <div class="md:col-span-2">
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="watermark_move" value="true" class="form-checkbox" {% if
-                  config.watermark.move %}checked{% endif %}>
-                <span class="ml-2">Enable slight movement (prevents screen burn-in)</span>
-              </label>
-            </div>
-          </div>
+        {% if force_password_change %}
+        <div class="config-section password-change-forced">
+            <h2 class="text-amber-400">Set Administrator Password</h2>
+            <p class="mb-4 text-sm text-gray-400">Please set a new password for the 'admin' user.</p>
+            <form action="{{ url_for('change_password') }}" method="POST">
+                <input type="hidden" name="username" value="{{ config.auth.username | default('admin') }}">
+                <div class="mb-4">
+                    <label for="new_password">New Password:</label>
+                    <input type="password" id="new_password" name="new_password" required class="form-input">
+                </div>
+                <div class="mb-4">
+                    <label for="confirm_password">Confirm New Password:</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required class="form-input">
+                </div>
+                <div class="text-right">
+                    <button type="submit" class="btn btn-danger">
+                        Set Password
+                    </button>
+                </div>
+            </form>
         </div>
-        <div class="mb-6 pb-6 border-b border-gray-200">
-          <h3 class="text-lg font-medium mb-3">Time Widget</h3>
-          <label class="inline-flex items-center">
-            <input type="checkbox" name="time_widget_enabled" value="true" class="form-checkbox" {% if
-              config.widgets.time.enabled %}checked{% endif %}>
-            <span class="ml-2">Enable Time Widget</span>
-          </label>
-        </div>
-        <div class="mb-6 pb-6 border-b border-gray-200">
-          <h3 class="text-lg font-medium mb-3">Weather Widget</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-            <div>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="weather_widget_enabled" value="true" class="form-checkbox" {% if
-                  config.widgets.weather.enabled %}checked{% endif %}>
-                <span class="ml-2">Enable Weather Widget</span>
-              </label>
+        {% endif %}
+
+        {% if not force_password_change %}
+        <div> {# Wrapper for main content #}
+
+            <div class="config-section">
+                <h2>Image Management</h2>
+                <div class="mb-6 pb-6 border-b border-gray-600">
+                    <h3 class="text-lg font-medium mb-3">Upload New Images</h3>
+                    <form action="{{ url_for('upload_image') }}" method="POST" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="image_files">Select image files:</label>
+                            <input type="file" name="image_files" id="image_files" multiple
+                                   accept="image/png, image/jpeg, image/gif, image/webp" required
+                                   class="block w-full text-sm border rounded-lg cursor-pointer focus:outline-none">
+                            <p class="mt-1 text-xs text-gray-400">Accepted formats: PNG, JPG, GIF, WEBP. You can select multiple files.</p>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            Upload Images
+                        </button>
+                    </form>
+                </div>
+                <div>
+                    <h3 class="text-lg font-medium mb-3">Current Images</h3>
+                    <form id="delete-form" action="{{ url_for('delete_images') }}" method="POST">
+                        <div id="thumbnail-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 mb-4">
+                            {% if images %}
+                                {% for image_filename in images %}
+                                    <div class="thumbnail-item">
+                                        <input type="checkbox" name="selected_images" value="{{ image_filename }}"
+                                               class="form-checkbox rounded text-red-500 focus:ring-red-400">
+                                        {% set thumb_base, _ = image_filename.rsplit('.', 1) %}
+                                        {% set thumb_filename_png = thumb_base + '.png' %}
+                                        <img src="{{ url_for('serve_thumbnail', filename=thumb_filename_png) }}"
+                                             alt="{{ image_filename }}" loading="lazy">
+                                        <div class="filename" title="{{ image_filename }}">{{ image_filename }}</div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-gray-400 col-span-full">No images uploaded yet.</p>
+                            {% endif %}
+                        </div>
+                        {% if images %}
+                        <div id="delete-form-container" class="mt-4 text-right">
+                            <button type="submit" id="delete-button" class="btn btn-danger" disabled>
+                                Delete Selected (<span id="selected-count">0</span>)
+                            </button>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
             </div>
-            <div></div>
-            <div>
-              <label for="weather_location">Location:</label>
-              <input type="text" id="weather_location" name="weather_location"
-                value="{{ config.widgets.weather.location | default('') }}" class="form-input"
-                placeholder="e.g., Oshkosh, WI">
+
+            <form action="{{ url_for('save_settings') }}" method="POST">
+                <div class="config-section">
+                    <h2>Slideshow Settings</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="duration_seconds">Image Duration (seconds):</label>
+                            <input type="number" id="duration_seconds" name="duration_seconds" min="1" step="1" required
+                                   value="{{ config.slideshow.duration_seconds | default(10) }}" class="form-input">
+                        </div>
+                        <div>
+                            <label for="transition_effect">Transition Effect:</label>
+                            <select id="transition_effect" name="transition_effect" class="form-select">
+                                <option value="fade" {% if config.slideshow.transition_effect == 'fade' %}selected{% endif %}>Fade</option>
+                                <option value="slide" {% if config.slideshow.transition_effect == 'slide' %}selected{% endif %}>Slide (Basic)</option>
+                                <option value="none" {% if config.slideshow.transition_effect == 'none' %}selected{% endif %}>None</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Image Order:</label>
+                            <div class="mt-2 space-x-4">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="image_order" value="sequential" class="form-radio"
+                                           {% if config.slideshow.image_order == 'sequential' %}checked{% endif %}>
+                                    <span class="ml-2">Sequential</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="image_order" value="random" class="form-radio"
+                                           {% if config.slideshow.image_order == 'random' %}checked{% endif %}>
+                                    <span class="ml-2">Random</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h2>Widgets & Overlay</h2>
+                    <div class="mb-6 pb-6 border-b border-gray-600">
+                         <h3 class="text-lg font-medium mb-3">Watermark</h3>
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                             <div class="md:col-span-2">
+                                 <label class="inline-flex items-center">
+                                     <input type="checkbox" name="watermark_enabled" value="true" class="form-checkbox"
+                                            {% if config.watermark.enabled %}checked{% endif %}>
+                                     <span class="ml-2">Enable Watermark</span>
+                                 </label>
+                             </div>
+                             <div>
+                                 <label for="watermark_text">Watermark Text:</label>
+                                 <input type="text" id="watermark_text" name="watermark_text"
+                                        value="{{ config.watermark.text | default('') }}" class="form-input">
+                             </div>
+                             <div>
+                                 <label for="watermark_position">Position:</label>
+                                 <select id="watermark_position" name="watermark_position" class="form-select">
+                                     <option value="top-left" {% if config.watermark.position == 'top-left' %}selected{% endif %}>Top Left</option>
+                                     <option value="top-right" {% if config.watermark.position == 'top-right' %}selected{% endif %}>Top Right</option>
+                                     <option value="bottom-left" {% if config.watermark.position == 'bottom-left' %}selected{% endif %}>Bottom Left</option>
+                                     <option value="bottom-right" {% if config.watermark.position == 'bottom-right' %}selected{% endif %}>Bottom Right</option>
+                                     <option value="center" {% if config.watermark.position == 'center' %}selected{% endif %}>Center</option>
+                                 </select>
+                             </div>
+                             {# Removed 'move' checkbox from here #}
+                         </div>
+                    </div>
+                    <div class="mb-6 pb-6 border-b border-gray-600">
+                         <h3 class="text-lg font-medium mb-3">Time Widget</h3>
+                         <label class="inline-flex items-center">
+                             <input type="checkbox" name="time_widget_enabled" value="true" class="form-checkbox"
+                                    {% if config.widgets.time.enabled %}checked{% endif %}>
+                             <span class="ml-2">Enable Time Widget</span>
+                         </label>
+                    </div>
+                     <div class="mb-6 pb-6 border-b border-gray-600">
+                         <h3 class="text-lg font-medium mb-3">Weather Widget</h3>
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                             <div>
+                                  <label class="inline-flex items-center">
+                                     <input type="checkbox" name="weather_widget_enabled" value="true" class="form-checkbox"
+                                            {% if config.widgets.weather.enabled %}checked{% endif %}>
+                                     <span class="ml-2">Enable Weather Widget</span>
+                                 </label>
+                             </div>
+                             <div></div>
+                             <div>
+                                 <label for="weather_location">Location:</label>
+                                 <input type="text" id="weather_location" name="weather_location"
+                                        value="{{ config.widgets.weather.location | default('') }}" class="form-input" placeholder="e.g., Oshkosh, WI">
+                             </div>
+                             <div>
+                                <label for="weather_api_key">API Key (e.g., OpenWeatherMap):</label>
+                                <input type="text" id="weather_api_key" name="weather_api_key"
+                                       value="{{ config.widgets.weather.api_key | default('') }}" class="form-input">
+                                <p class="mt-1 text-xs text-gray-400">Required if weather widget is enabled.</p>
+                             </div>
+                         </div>
+                    </div>
+                     <div>
+                         <h3 class="text-lg font-medium mb-3">RSS Feed Widget</h3>
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                             <div>
+                                  <label class="inline-flex items-center">
+                                     <input type="checkbox" name="rss_widget_enabled" value="true" class="form-checkbox"
+                                            {% if config.widgets.rss.enabled %}checked{% endif %}>
+                                     <span class="ml-2">Enable RSS Feed Widget</span>
+                                 </label>
+                             </div>
+                              <div></div>
+                             <div class="md:col-span-2">
+                                 <label for="rss_feed_url">Feed URL:</label>
+                                 <input type="url" id="rss_feed_url" name="rss_feed_url"
+                                        value="{{ config.widgets.rss.feed_url | default('') }}" class="form-input" placeholder="https://example.com/feed.xml">
+                                 <p class="mt-1 text-xs text-gray-400">Required if RSS widget is enabled.</p>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h2>Screen Burn-in Prevention</h2>
+                     <div class="mb-4">
+                         <label class="inline-flex items-center">
+                             <input type="checkbox" name="burn_in_prevention_enabled" value="true" class="form-checkbox"
+                                    {% if config.burn_in_prevention.enabled %}checked{% endif %}>
+                             <span class="ml-2 font-medium">Enable Pixel Shifting for Static Elements</span>
+                         </label>
+                         <p class="mt-1 text-xs text-gray-400">Periodically shifts selected static text elements slightly to reduce screen burn-in.</p>
+                     </div>
+
+                     <div class="mb-4">
+                         <label>Elements to Shift:</label>
+                         <div class="mt-2 space-y-1 md:space-y-0 md:flex md:space-x-4">
+                             {# Define element identifiers used in JS #}
+                             {% set shiftable_elements = {'watermark': 'Watermark', 'time': 'Time Widget', 'weather': 'Weather Widget', 'rss': 'RSS Widget'} %}
+                             {% for elem_id, elem_name in shiftable_elements.items() %}
+                             <label class="inline-flex items-center">
+                                 <input type="checkbox" name="burn_in_elements" value="{{ elem_id }}" class="form-checkbox"
+                                        {% if elem_id in config.burn_in_prevention.elements %}checked{% endif %}>
+                                 <span class="ml-2">{{ elem_name }}</span>
+                             </label>
+                             {% endfor %}
+                             {# Add 'status' later if needed #}
+                         </div>
+                     </div>
+
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                             <label for="burn_in_interval_seconds">Shift Interval (seconds):</label>
+                             <input type="number" id="burn_in_interval_seconds" name="burn_in_interval_seconds" min="1" step="1" required
+                                    value="{{ config.burn_in_prevention.interval_seconds | default(15) }}" class="form-input">
+                             <p class="mt-1 text-xs text-gray-400">How often to shift the elements.</p>
+                         </div>
+                         <div>
+                             <label for="burn_in_strength_pixels">Shift Strength (pixels):</label>
+                             <input type="number" id="burn_in_strength_pixels" name="burn_in_strength_pixels" min="1" max="20" step="1" required
+                                    value="{{ config.burn_in_prevention.strength_pixels | default(3) }}" class="form-input">
+                              <p class="mt-1 text-xs text-gray-400">Maximum random offset (+/- pixels).</p>
+                         </div>
+                     </div>
+                </div>
+
+                <div class="mt-6 text-right">
+                     <button type="submit" class="btn btn-primary">
+                         Save Configuration
+                     </button>
+                </div>
+            </form> <div class="config-section mt-8">
+                <h2>Update Password</h2>
+                <form action="{{ url_for('update_password') }}" method="POST">
+                    <div class="mb-4">
+                        <label for="update_current_password">Current Password:</label>
+                        <input type="password" id="update_current_password" name="update_current_password" required class="form-input">
+                    </div>
+                    <div class="mb-4">
+                        <label for="update_new_password">New Password:</label>
+                        <input type="password" id="update_new_password" name="update_new_password" required class="form-input">
+                    </div>
+                    <div class="mb-4">
+                        <label for="update_confirm_password">Confirm New Password:</label>
+                        <input type="password" id="update_confirm_password" name="update_confirm_password" required class="form-input">
+                    </div>
+                    <div class="text-right">
+                        <button type="submit" class="btn btn-primary">
+                            Update Password
+                        </button>
+                    </div>
+                </form>
             </div>
-            <div>
-              <label for="weather_api_key">API Key (e.g., OpenWeatherMap):</label>
-              <input type="text" id="weather_api_key" name="weather_api_key"
-                value="{{ config.widgets.weather.api_key | default('') }}" class="form-input">
-              <p class="mt-1 text-xs text-gray-500">Required if weather widget is enabled.</p>
-            </div>
-          </div>
-        </div>
-        <div>
-          <h3 class="text-lg font-medium mb-3">RSS Feed Widget</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-            <div>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="rss_widget_enabled" value="true" class="form-checkbox" {% if
-                  config.widgets.rss.enabled %}checked{% endif %}>
-                <span class="ml-2">Enable RSS Feed Widget</span>
-              </label>
-            </div>
-            <div></div>
-            <div class="md:col-span-2">
-              <label for="rss_feed_url">Feed URL:</label>
-              <input type="url" id="rss_feed_url" name="rss_feed_url"
-                value="{{ config.widgets.rss.feed_url | default('') }}" class="form-input"
-                placeholder="https://example.com/feed.xml">
-              <p class="mt-1 text-xs text-gray-500">Required if RSS widget is enabled.</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div class="mt-6 text-right">
-        <button type="submit"
-          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-150 ease-in-out">
-          Save Configuration
-        </button>
-      </div>
+        </div> {% endif %} {# Closes the 'if not force_password_change' block #}
 
-    </form>
-  </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      const checkboxes = document.querySelectorAll('input[name="selected_images"]');
-      const deleteButton = document.getElementById('delete-button');
-      const selectedCountSpan = document.getElementById('selected-count');
-
-      if (!deleteButton) return; // Exit if no delete button
-
-      function updateDeleteButtonState() {
-        const checkedCount = document.querySelectorAll('input[name="selected_images"]:checked').length;
-        selectedCountSpan.textContent = checkedCount;
-        deleteButton.disabled = checkedCount === 0;
-      }
-
-      checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', updateDeleteButtonState);
-      });
-      updateDeleteButtonState(); // Initial check
-
-      const deleteForm = document.getElementById('delete-form');
-      if (deleteForm) {
-        deleteForm.addEventListener('submit', function (event) {
-          const checkedCount = document.querySelectorAll('input[name="selected_images"]:checked').length;
-          if (checkedCount > 0) {
-            if (!confirm(`Are you sure you want to delete ${checkedCount} selected image(s)? This cannot be undone.`)) {
-              event.preventDefault();
+    </div> <script>
+        // (Keep existing JS for delete button the same)
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('input[name="selected_images"]');
+            const deleteButton = document.getElementById('delete-button');
+            const selectedCountSpan = document.getElementById('selected-count');
+            if (!deleteButton) return;
+            function updateDeleteButtonState() {
+                const checkedCount = document.querySelectorAll('input[name="selected_images"]:checked').length;
+                selectedCountSpan.textContent = checkedCount;
+                deleteButton.disabled = checkedCount === 0;
             }
-          } else {
-            event.preventDefault();
-          }
+            checkboxes.forEach(checkbox => { checkbox.addEventListener('change', updateDeleteButtonState); });
+            updateDeleteButtonState();
+            const deleteForm = document.getElementById('delete-form');
+            if (deleteForm) {
+                deleteForm.addEventListener('submit', function(event) {
+                    const checkedCount = document.querySelectorAll('input[name="selected_images"]:checked').length;
+                    if (checkedCount > 0) { if (!confirm(`Are you sure you want to delete ${checkedCount} selected image(s)? This cannot be undone.`)) { event.preventDefault(); } }
+                    else { event.preventDefault(); }
+                });
+            }
         });
-      }
-    });
-  </script>
+    </script>
 </body>
-
 </html>
