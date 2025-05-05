@@ -23,7 +23,8 @@
             Sorry, the page you are looking for does not exist or may have been moved.
         </p>
         <a href="{{ url_for('slideshow_viewer') }}" class="btn btn-primary mr-2">Go to Slideshow</a>
-        <a href="{{ url_for('config_page') }}" class="btn btn-secondary">Go to Config</a>
+        {# *** CORRECTED LINK: Point to config_redirect instead of config_page *** #}
+        <a href="{{ url_for('config_redirect') }}" class="btn btn-secondary">Go to Config</a>
     </div>
 </body>
 </html>
