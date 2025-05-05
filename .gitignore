@@ -21,3 +21,6 @@ Thumbs.db
 # IDE/Editor files
 .vscode/
 .idea/
+
+# Python .env
+.env

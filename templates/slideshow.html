@@ -5,102 +5,106 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ShowGo Slideshow</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Basic styles for full screen and elements */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Prevent scrollbars */
-            background-color: #000; /* Black background */
-            color: #fff; /* Default white text */
-            font-family: sans-serif;
-            /* cursor: none; <-- REMOVED static rule */
-            user-select: none; /* Standard */
-            -webkit-user-select: none; /* Safari/Chrome */
-            -moz-user-select: none; /* Firefox */
-            -ms-user-select: none; /* IE/Edge */
+        /* Styles from 'known good' version, adapted slightly */
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #000; color: #fff; font-family: Inter, sans-serif; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
+        body.fullscreen-active { cursor: none; }
+        #slideshow-container { position: relative; width: 100%; height: 100%; overflow: hidden; } /* Added overflow: hidden */
+        #slideshow-image {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            transition: opacity 1s ease-in-out; /* Fade transition */
+            background-color: #000;
+            /* --- Ken Burns Specific --- */
+            transform-origin: center center; /* Default origin */
+            /* Transition for the transform will be set by JS */
         }
-        /* --- NEW: Class to hide cursor when in fullscreen --- */
-        body.fullscreen-active {
-            cursor: none;
+        #slideshow-image.active { opacity: 1; }
+        /* --- Ken Burns Animation Class (applied by JS) --- */
+        #slideshow-image.kenburns-active {
+            /* The actual transform values and duration will be set inline by JS */
+            transition: opacity 1s ease-in-out, transform var(--kb-duration) linear; /* Combine opacity and transform transitions */
         }
-        /* ---------------------------------------------------- */
-        #slideshow-container { position: relative; width: 100%; height: 100%; }
-        .slide-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; background-color: #000; }
-        .slide-image.active { opacity: 1; }
+        /* --- End Ken Burns --- */
+
         #widget-container { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: flex-end; z-index: 10; pointer-events: none; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
-        .widget { background-color: rgba(0, 0, 0, 0.5); padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 1.1rem; margin: 0 10px; }
+        .widget { background-color: rgba(0, 0, 0, 0.6); padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 1.1rem; margin: 0 10px; }
         #time-widget {}
         #weather-widget { text-align: right; }
-        #watermark { position: absolute; z-index: 20; background-color: rgba(0, 0, 0, 0.5); padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.9rem; pointer-events: none; bottom: 10px; right: 10px; }
-        #status-message-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ccc; text-align: center; z-index: 5; }
-        #rss-ticker-container { position: absolute; bottom: 80px; left: 0; width: 100%; background-color: rgba(0, 0, 0, 0.6); padding: 0.5rem 0; overflow: hidden; white-space: nowrap; z-index: 11; box-sizing: border-box; }
+        #weather-widget img { display: inline-block; height: 1.5em; width: 1.5em; vertical-align: middle; margin-left: 0.25rem; }
+        #watermark { position: absolute; z-index: 20; background-color: rgba(0, 0, 0, 0.6); padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.9rem; pointer-events: auto; }
+        #status-message-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ccc; text-align: center; z-index: 5; font-size: 1.25rem; }
+        #rss-ticker-container { position: absolute; bottom: 80px; left: 0; width: 100%; background-color: rgba(0, 0, 0, 0.6); padding: 0.5rem 0; overflow: hidden; white-space: nowrap; z-index: 11; box-sizing: border-box; pointer-events: none; }
         #rss-ticker-content { display: inline-block; padding-left: 100%; animation: ticker-scroll 60s linear infinite; font-size: 1rem; color: #e5e7eb; }
-        #rss-ticker-content span { margin: 0 1.5rem; }
+        #rss-ticker-content span.rss-item { margin: 0 1.5rem; }
+        #rss-ticker-content span.rss-separator { color: #6b7280; margin: 0 0.5rem; }
         @keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+        .top-left { top: 10px; left: 10px; } .top-right { top: 10px; right: 10px; } .bottom-left { bottom: 10px; left: 10px; } .bottom-right { bottom: 10px; right: 10px; }
     </style>
 </head>
-<body>
-    <div id="slideshow-container">
-         <div id="status-message-display">
-             {% if not images %}
-                 <p>No images uploaded.</p>
-             {% endif %}
-         </div>
+<body class="bg-black text-white font-sans overflow-hidden">
+
+    {# --- Container needs overflow:hidden for Ken Burns --- #}
+    <div id="slideshow-container" class="relative w-full h-screen overflow-hidden">
+        <div id="status-message-display">
+             {# Check the 'images' list passed from Flask #}
+            {% if not images %}
+                <p>No valid images found for slideshow.</p>
+            {% endif %}
+        </div>
+         {# --- Image element prepared for Ken Burns --- #}
+        <img id="slideshow-image" src="" alt="Slideshow Image" class="absolute top-0 left-0 w-full h-full {{ 'object-contain' if config.slideshow.image_scaling == 'contain' else 'object-cover' }}">
     </div>
 
-    {% if config.watermark.enabled %}
-    <div id="watermark">{{ config.watermark.text }}</div>
-    {% endif %}
-
-    <div id="widget-container">
-        {% if config.widgets.time.enabled %}
-        <div id="time-widget" class="widget">--:--:--</div>
-        {% endif %}
-        {% if config.widgets.weather.enabled and weather %}
-        <div id="weather-widget" class="widget">
-            {{ weather.name }}: {{ weather.main.temp | round(0) }}°F, {{ weather.weather[0].description }}
-        </div>
-        {% elif config.widgets.weather.enabled and not weather %}
-         <div id="weather-widget" class="widget text-red-400">Weather unavailable</div>
-        {% endif %}
-    </div> {% if config.widgets.rss.enabled %}
-    <div id="rss-ticker-container">
-        <div id="rss-ticker-content">
-             {% if not rss_headlines %}
-                <span>RSS Feed unavailable or empty.</span>
-             {% endif %}
-        </div>
-    </div>
-    {% endif %}
+    {# ... (Rest of HTML unchanged) ... #}
+    {% if config.watermark.enabled and config.watermark.text %} <div id="watermark" class="widget {{ config.watermark.position | default('bottom-right') }}"> {{ config.watermark.text }} </div> {% endif %}
+    <div id="widget-container"> {% if config.widgets.time.enabled %} <div id="time-widget" class="widget"> <span id="time-display">--:--:-- --</span> </div> {% else %} <div></div> {% endif %} {% if config.widgets.weather.enabled and weather %} <div id="weather-widget" class="widget"> <span id="weather-location">{{ weather.name }}</span>: <span id="weather-temp">{{ weather.main.temp | round | int }}&deg;F</span>, <span id="weather-desc">{{ weather.weather[0].description | title }}</span> {% if weather.weather[0].icon %} <img src="https://openweathermap.org/img/wn/{{ weather.weather[0].icon }}.png" alt=""> {% endif %} </div> {% elif not config.widgets.time.enabled %} <div></div> {% endif %} </div>
+    {% if config.widgets.rss.enabled and rss_headlines %} <div id="rss-ticker-container"> <div id="rss-ticker-content"> {% for _ in range(2) %} {% for item in rss_headlines %} <span class="rss-item">{{ item.title }}</span> <span class="rss-separator"> // </span> {% endfor %} {% endfor %} </div> </div> {% endif %}
 
     <script>
-        const slideshowData = {
-            images: {{ images | tojson }},
-            duration: {{ config.slideshow.duration_seconds * 1000 }},
-            transitionEffect: {{ config.slideshow.transition_effect | tojson }},
-            imageOrder: {{ config.slideshow.image_order | tojson }},
-            imageBaseUrl: {{ url_for('serve_uploaded_image', filename='') | tojson }},
-            imageScaling: {{ config.slideshow.image_scaling | default('cover') | tojson }},
-            widgets: {
-                time: {{ config.widgets.time.enabled | tojson }},
-                watermark: {
-                    enabled: {{ config.watermark.enabled | tojson }},
-                    text: {{ config.watermark.text | tojson }},
-                    position: {{ config.watermark.position | tojson }}
-                },
-                rss: {
-                    enabled: {{ config.widgets.rss.enabled | tojson }},
-                    headlines: {{ rss_headlines | tojson }}
-                }
-            },
-            burnInPrevention: {{ config.burn_in_prevention | tojson }},
-            initialTimestamp: {{ initial_config_timestamp | default(0) }}
-        };
-        // console.log("Slideshow Data:", slideshowData);
+        let slideshowData = null; // Initialize as null
+        try {
+            slideshowData = {
+                images: {{ images | tojson | safe }},
+                config: {{ config | tojson | safe }},
+                initialTimestamp: {% if initial_config_timestamp is not none %}{{ initial_config_timestamp }}{% else %}null{% endif %},
+                imageBaseUrl: "{{ url_for('serve_uploaded_image', filename='') }}",
+                weatherError: {{ weather_error | tojson | safe }},
+                rssError: {{ rss_error | tojson | safe }}
+            };
+            if (slideshowData.weatherError) { console.error("Weather Widget Error:", slideshowData.weatherError); }
+            if (slideshowData.rssError) { console.error("RSS Widget Error:", slideshowData.rssError); }
+
+            // Data Restructuring/Defaults
+            slideshowData.config = slideshowData.config || {};
+            slideshowData.config.slideshow = slideshowData.config.slideshow || {};
+            slideshowData.config.watermark = slideshowData.config.watermark || {};
+            slideshowData.config.widgets = slideshowData.config.widgets || {};
+            slideshowData.config.widgets.time = slideshowData.config.widgets.time || {};
+            slideshowData.config.widgets.rss = slideshowData.config.widgets.rss || {};
+            slideshowData.config.burn_in_prevention = slideshowData.config.burn_in_prevention || {};
+            slideshowData = {
+                images: slideshowData.images || [],
+                duration: (slideshowData.config.slideshow.duration_seconds || 10) * 1000,
+                transitionEffect: slideshowData.config.slideshow.transition_effect || 'fade',
+                imageOrder: slideshowData.config.slideshow.image_order || 'sequential',
+                imageBaseUrl: slideshowData.imageBaseUrl || '',
+                imageScaling: slideshowData.config.slideshow.image_scaling || 'cover',
+                widgets: { time: slideshowData.config.widgets.time.enabled ?? true, watermark: { enabled: slideshowData.config.watermark.enabled ?? false, text: slideshowData.config.watermark.text || '', position: slideshowData.config.watermark.position || 'bottom-right' }, rss: { enabled: slideshowData.config.widgets.rss.enabled ?? false } },
+                burnInPrevention: { enabled: slideshowData.config.burn_in_prevention.enabled ?? false, elements: slideshowData.config.burn_in_prevention.elements || ['watermark'], interval_seconds: slideshowData.config.burn_in_prevention.interval_seconds || 15, strength_pixels: slideshowData.config.burn_in_prevention.strength_pixels || 3 },
+                initialTimestamp: slideshowData.initialTimestamp ?? 0
+            };
+            console.log("Slideshow Data Constructed Successfully:", slideshowData);
+             if (!slideshowData.images || slideshowData.images.length === 0) { const statusDisplay = document.getElementById('status-message-display'); if (statusDisplay && !statusDisplay.querySelector('p')) { statusDisplay.innerHTML = '<p>No valid images found for slideshow.</p>'; } }
+        } catch (error) { console.error("Error initializing slideshow data:", error); const statusDisplay = document.getElementById('status-message-display'); if (statusDisplay) { statusDisplay.innerHTML = '<p style="color: red;">Error loading slideshow data. Please check console.</p>'; } slideshowData = null; }
     </script>
 
     <script src="{{ url_for('static', filename='js/slideshow.js') }}"></script>
+
 </body>
 </html>

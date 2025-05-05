@@ -7,13 +7,19 @@ import random
 import requests
 import feedparser
 import traceback
-from datetime import datetime
+import uuid # Import UUID library
+import shutil # Import for directory removal
+from datetime import datetime, timezone
+from dotenv import load_dotenv
 
-# Make sure jsonify is imported
+# Import specific exceptions if needed for more granular error handling later
+from werkzeug.exceptions import NotFound, InternalServerError, RequestEntityTooLarge
+
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from flask_sqlalchemy import SQLAlchemy
 try:
     from PIL import Image, UnidentifiedImageError
     PIL_AVAILABLE = True
@@ -23,438 +29,513 @@ except ImportError:
     class UnidentifiedImageError(Exception): pass
     class Image: pass
 
-from werkzeug.exceptions import RequestEntityTooLarge
 
 # --- Configuration ---
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 THUMBNAIL_FOLDER = os.path.join(BASE_DIR, 'thumbnails')
-CONFIG_FOLDER = os.path.join(BASE_DIR, 'config')
-CONFIG_FILE = os.path.join(CONFIG_FOLDER, 'config.json')
 STATIC_FOLDER = os.path.join(BASE_DIR, 'static')
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 THUMBNAIL_SIZE = (150, 150)
+THUMBNAIL_FORMAT = 'PNG' # Store thumbnails as PNG
+THUMBNAIL_EXT = f".{THUMBNAIL_FORMAT.lower()}" # Expected thumbnail extension
 
+# Load environment variables from .env file
+load_dotenv()
+
+# --- Flask App Initialization ---
+app = Flask(__name__)
+
+# Configure database connection (using environment variables)
+db_user = os.environ.get('MYSQL_USER')
+db_password = os.environ.get('MYSQL_PASSWORD')
+db_host = os.environ.get('MYSQL_HOST')
+db_name = os.environ.get('MYSQL_DB')
+
+if not all([db_user, db_password, db_host, db_name]):
+    raise ValueError("Database connection parameters missing in environment variables (MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_DB)")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://{db_user}:{db_password}@{db_host}/{db_name}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# --- Other App Config ---
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 256 * 1024 * 1024
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+if not app.config['SECRET_KEY']:
+    raise ValueError("No SECRET_KEY set for Flask application")
+
+# Ensure necessary directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(THUMBNAIL_FOLDER, exist_ok=True)
-os.makedirs(CONFIG_FOLDER, exist_ok=True)
 os.makedirs(os.path.join(STATIC_FOLDER, 'images'), exist_ok=True)
 
+
+# --- Database Models ---
+class Setting(db.Model):
+    # ... (no change) ...
+    __tablename__ = 'settings'
+    key = db.Column(db.String(100), primary_key=True)
+    value = db.Column(db.JSON)
+    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    def __repr__(self): return f'<Setting {self.key}>'
+
+class ImageFile(db.Model):
+    # ... (no change) ...
+    __tablename__ = 'images'
+    id = db.Column(db.Integer, primary_key=True)
+    uuid_filename = db.Column(db.String(36), unique=True, nullable=False)
+    original_filename = db.Column(db.String(255), nullable=False)
+    display_name = db.Column(db.String(255), nullable=False)
+    extension = db.Column(db.String(10), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    def get_disk_filename(self): return f"{self.uuid_filename}.{self.extension}"
+    def get_thumbnail_filename(self): return f"{self.uuid_filename}{THUMBNAIL_EXT}"
+    def get_upload_path(self): return os.path.join(app.config['UPLOAD_FOLDER'], self.get_disk_filename())
+    def get_thumbnail_path(self): return os.path.join(app.config['THUMBNAIL_FOLDER'], self.get_thumbnail_filename())
+    def check_files_exist(self): return os.path.isfile(self.get_upload_path()) and os.path.isfile(self.get_thumbnail_path())
+    def __repr__(self): return f'<ImageFile {self.id}: {self.display_name} ({self.get_disk_filename()})>'
+
 # --- Default Configuration ---
-DEFAULT_CONFIG = {
-    "slideshow": {
-        "duration_seconds": 10,
-        "transition_effect": "fade",
-        "image_order": "sequential",
-        "image_scaling": "cover"
-    },
-    "watermark": {
-        "enabled": False,
-        "text": "© Your Company",
-        "position": "bottom-right"
-    },
-    "widgets": {
-        "time": {"enabled": True},
-        "weather": {"enabled": True, "location": "Oshkosh, WI", "api_key": ""},
-        "rss": {"enabled": False, "feed_url": "https://feeds.bbci.co.uk/news/rss.xml?edition=us"}
-    },
-    "auth": {
-         "username": "admin",
-         "password_hash": generate_password_hash("showgo"),
-         "password_changed": False
-    },
-    "burn_in_prevention": {
-        "enabled": False,
-        "elements": ["watermark"],
-        "interval_seconds": 15,
-        "strength_pixels": 3
-    }
+DEFAULT_SETTINGS_DB = {
+    "slideshow_duration_seconds": 10,
+    "slideshow_transition_effect": "fade", # Default remains fade
+    "slideshow_image_order": "sequential",
+    "slideshow_image_scaling": "cover",
+    "watermark_enabled": False,
+    "watermark_text": "© Your Company",
+    "watermark_position": "bottom-right",
+    "widgets_time_enabled": True,
+    "widgets_weather_enabled": True,
+    "widgets_weather_location": "Oshkosh, WI",
+    "widgets_rss_enabled": False,
+    "widgets_rss_feed_url": "https://feeds.bbci.co.uk/news/rss.xml?edition=us",
+    "auth_username": "admin",
+    "auth_password_hash": generate_password_hash("showgo"),
+    "auth_password_changed": False,
+    "burn_in_prevention_enabled": False,
+    "burn_in_prevention_elements": ["watermark"],
+    "burn_in_prevention_interval_seconds": 15,
+    "burn_in_prevention_strength_pixels": 3
 }
 
 # --- Helper Functions ---
-# (Keep allowed_file and generate_thumbnail functions the same)
-def allowed_file(filename):
+def allowed_file(filename): # ... (no change) ...
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def generate_thumbnail(source_path, dest_path, size):
+def generate_thumbnail(source_path, dest_path, size): # ... (no change) ...
     if not PIL_AVAILABLE: return False, None
     try:
         if not os.path.isfile(source_path): return False, None
         with Image.open(source_path) as img:
-            if img.format == 'GIF' and getattr(img, 'is_animated', False):
-                 img.seek(0); img = img.convert('RGB')
-            img.thumbnail(size)
-            dest_dir = os.path.dirname(dest_path)
-            os.makedirs(dest_dir, exist_ok=True)
-            thumb_format = 'PNG'
-            base, _ = os.path.splitext(dest_path)
-            dest_path_with_ext = f"{base}.{thumb_format.lower()}"
-            img.save(dest_path_with_ext, thumb_format)
-            return True, dest_path_with_ext
+            if img.format == 'GIF' and getattr(img, 'is_animated', False): img.seek(0); img = img.convert('RGB')
+            img.thumbnail(size); dest_dir = os.path.dirname(dest_path); os.makedirs(dest_dir, exist_ok=True); img.save(dest_path, THUMBNAIL_FORMAT); return True, dest_path
     except UnidentifiedImageError: print(f"ERROR: Cannot identify image file {source_path}"); return False, None
     except FileNotFoundError: print(f"ERROR: File not found during Image.open: {source_path}"); return False, None
     except Exception as e: print(f"ERROR: Generic exception generating thumbnail for {os.path.basename(source_path)}: {e}"); traceback.print_exc(); return False, None
 
-# --- Configuration Loading/Saving Functions ---
-# (Keep load_config and save_config functions the same as v14)
-def load_config():
-    """Loads configuration from config.json, falling back to defaults."""
-    needs_resave = False
-    config_to_use = DEFAULT_CONFIG.copy() # Start with current defaults
-
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, 'r') as f:
-                loaded_settings = json.load(f)
-
-            # --- Migration from old watermark 'move' setting ---
-            if 'watermark' in loaded_settings and isinstance(loaded_settings['watermark'], dict) \
-               and 'move' in loaded_settings['watermark']:
-                print("Migrating old watermark 'move' setting...")
-                if loaded_settings['watermark']['move']:
-                    if 'burn_in_prevention' not in loaded_settings: loaded_settings['burn_in_prevention'] = {}
-                    loaded_settings['burn_in_prevention']['enabled'] = True
-                    current_elements = loaded_settings['burn_in_prevention'].get('elements', [])
-                    if 'watermark' not in current_elements: current_elements.append('watermark')
-                    loaded_settings['burn_in_prevention']['elements'] = current_elements
-                del loaded_settings['watermark']['move']
-                needs_resave = True
-            # ---------------------------------------------------
-
-            # Merge loaded settings onto defaults (handles missing keys in loaded file)
-            for key, default_value in DEFAULT_CONFIG.items():
-                if key in loaded_settings:
-                    if isinstance(default_value, dict):
-                        if key not in config_to_use: config_to_use[key] = default_value.copy()
-                        if isinstance(loaded_settings.get(key), dict):
-                             config_to_use[key].update(loaded_settings[key])
-                    else:
-                        config_to_use[key] = loaded_settings[key]
-
-            # --- Specific checks/migrations after merge ---
-            if 'auth' not in config_to_use or not isinstance(config_to_use.get('auth'), dict):
-                config_to_use['auth'] = DEFAULT_CONFIG['auth'].copy()
-                needs_resave = True
-            elif 'password_changed' not in config_to_use['auth']:
-                config_to_use['auth']['password_changed'] = config_to_use['auth'].get('password_hash') != DEFAULT_CONFIG['auth']['password_hash']
-                print(f"Added missing 'password_changed' flag, set to: {config_to_use['auth']['password_changed']}")
-                needs_resave = True
-            if 'burn_in_prevention' not in config_to_use:
-                config_to_use['burn_in_prevention'] = DEFAULT_CONFIG['burn_in_prevention'].copy()
-            if 'slideshow' not in config_to_use:
-                 config_to_use['slideshow'] = DEFAULT_CONFIG['slideshow'].copy()
-                 needs_resave = True
-            elif 'image_scaling' not in config_to_use.get('slideshow', {}):
-                 config_to_use.setdefault('slideshow', {})['image_scaling'] = DEFAULT_CONFIG['slideshow']['image_scaling']
-                 print("Added missing 'image_scaling' setting to slideshow config.")
-                 needs_resave = True
-            if 'password' in config_to_use.get('auth', {}):
-                 if 'password_hash' not in config_to_use['auth']:
-                     config_to_use['auth']['password_hash'] = generate_password_hash(config_to_use['auth']['password'])
-                 del config_to_use['auth']['password']
-                 needs_resave = True
-
-            if needs_resave: save_config(config_to_use)
-            return config_to_use
-
-        except json.JSONDecodeError: print(f"Error decoding JSON from {CONFIG_FILE}. Using default."); return DEFAULT_CONFIG.copy()
-        except Exception as e: print(f"Error loading config file: {e}. Using default."); traceback.print_exc(); return DEFAULT_CONFIG.copy()
-    else:
-        print("Config file not found. Saving default configuration.")
-        save_config(DEFAULT_CONFIG.copy())
-        return DEFAULT_CONFIG.copy()
-
-def save_config(config_data):
-    """Saves the configuration dictionary to config.json."""
-    if 'auth' in config_data and 'password_hash' in config_data['auth'] and 'password' in config_data['auth']:
-        del config_data['auth']['password']
-    if 'watermark' in config_data and 'move' in config_data['watermark']:
-         del config_data['watermark']['move']
+# --- Configuration Loading/Saving ---
+_settings_cache = None; _cache_timestamp = None
+def get_setting(key, default=None): # ... (no change) ...
+    global _settings_cache;
+    if _settings_cache and key in _settings_cache: return _settings_cache[key]
     try:
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(config_data, f, indent=4)
-        return True
-    except Exception as e: print(f"Error saving configuration: {e}"); return False
+        setting = Setting.query.filter_by(key=key).first()
+        if setting: return setting.value
+    except Exception as e: print(f"Error getting setting '{key}': {e}")
+    return default
 
-# --- Flask App Initialization ---
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['THUMBNAIL_FOLDER'] = THUMBNAIL_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 256 * 1024 * 1024
-app.config['SHOWGO_CONFIG'] = load_config()
-app.secret_key = 'dev-secret-key'
+def load_settings_from_db(): # ... (no change) ...
+    global _settings_cache; settings_dict = {};
+    try:
+        settings = Setting.query.all();
+        for setting in settings: settings_dict[setting.key] = setting.value
+        _settings_cache = settings_dict; print("Settings loaded from database.")
+    except Exception as e: print(f"Error loading settings from DB: {e}. Falling back to defaults."); settings_dict = DEFAULT_SETTINGS_DB.copy(); _settings_cache = settings_dict
+    return settings_dict
+
+def save_setting(key, value): # ... (no change) ...
+    global _settings_cache;
+    try:
+        setting = db.session.get(Setting, key);
+        if setting: setting.value = value
+        else: setting = Setting(key=key, value=value); db.session.add(setting)
+        db.session.commit()
+        if _settings_cache is not None: _settings_cache[key] = value;
+        return True
+    except Exception as e: db.session.rollback(); print(f"Error saving setting '{key}': {e}"); traceback.print_exc(); return False
+
+def get_config_timestamp_from_db(): # ... (no change) ...
+     print("--- get_config_timestamp_from_db called ---")
+     try:
+          latest_setting = Setting.query.order_by(Setting.last_updated.desc()).first();
+          if latest_setting:
+               print(f"DEBUG: Found latest setting: Key='{latest_setting.key}', LastUpdated='{latest_setting.last_updated}' (Type: {type(latest_setting.last_updated)})")
+               if isinstance(latest_setting.last_updated, datetime):
+                    timestamp = latest_setting.last_updated.timestamp()
+                    print(f"DEBUG: Returning timestamp: {timestamp}")
+                    return timestamp
+               else: print("DEBUG: Latest setting found, but last_updated is not a valid datetime object."); return 0.0
+          else: print("DEBUG: No settings found in the database."); return 0.0
+     except Exception as e: print(f"ERROR in get_config_timestamp_from_db: {e}"); traceback.print_exc(); return None
+
+# --- Filesystem Validation Helpers ---
+def get_database_images(): # ... (no change) ...
+    try: all_images = ImageFile.query.all(); db_uuids = {img.uuid_filename for img in all_images}; return all_images, db_uuids
+    except Exception as e: print(f"Error querying database images: {e}"); return [], set()
+def find_missing_files(db_images): # ... (no change) ...
+    missing = [];
+    for img in db_images:
+        original_exists = os.path.isfile(img.get_upload_path()); thumbnail_exists = os.path.isfile(img.get_thumbnail_path())
+        if not original_exists or not thumbnail_exists: img.missing_info = [];
+    return missing
+def find_unexpected_items(db_uuids): # ... (no change) ...
+    orphaned_uuid_files = []; unexpected_files = []; unexpected_dirs = []; upload_folder = app.config['UPLOAD_FOLDER']
+    if os.path.isdir(upload_folder):
+        try:
+            for item_name in os.listdir(upload_folder):
+                item_path = os.path.join(upload_folder, item_name); item_info = {'folder': 'uploads', 'name': item_name}
+                if os.path.isdir(item_path): unexpected_dirs.append(item_info)
+                elif os.path.isfile(item_path):
+                    uuid_part, _ = os.path.splitext(item_name); is_uuid_format = len(uuid_part) == 32 and all(c in '0123456789abcdef' for c in uuid_part)
+                    if is_uuid_format:
+                        if uuid_part not in db_uuids: orphaned_uuid_files.append(item_info)
+                    else:
+                        if item_name.lower() not in ['.ds_store', 'thumbs.db']: unexpected_files.append(item_info)
+        except OSError as e: print(f"Error reading directory {upload_folder}: {e}")
+    else: print(f"Warning: Upload directory not found: {upload_folder}")
+    thumbnail_folder = app.config['THUMBNAIL_FOLDER']
+    if os.path.isdir(thumbnail_folder):
+        try:
+            for item_name in os.listdir(thumbnail_folder):
+                item_path = os.path.join(thumbnail_folder, item_name); item_info = {'folder': 'thumbnails', 'name': item_name}
+                if os.path.isdir(item_path):
+                    if not any(d['name'] == item_name and d['folder'] == 'thumbnails' for d in unexpected_dirs): unexpected_dirs.append(item_info)
+                elif os.path.isfile(item_path):
+                    uuid_part, ext = os.path.splitext(item_name); is_uuid_format = len(uuid_part) == 32 and all(c in '0123456789abcdef' for c in uuid_part); is_expected_ext = ext.lower() == THUMBNAIL_EXT
+                    if is_uuid_format and is_expected_ext:
+                        if uuid_part not in db_uuids:
+                             if not any(f['name'] == item_name and f['folder'] == 'thumbnails' for f in orphaned_uuid_files): orphaned_uuid_files.append(item_info)
+                    else:
+                         if item_name.lower() not in ['.ds_store', 'thumbs.db']:
+                              if not any(f['name'] == item_name and f['folder'] == 'thumbnails' for f in unexpected_files): unexpected_files.append(item_info)
+        except OSError as e: print(f"Error reading directory {thumbnail_folder}: {e}")
+    else: print(f"Warning: Thumbnail directory not found: {thumbnail_folder}")
+    return orphaned_uuid_files, unexpected_files, unexpected_dirs
+def cleanup_unexpected_items(items_to_delete): # ... (no change) ...
+    deleted_files = 0; deleted_dirs = 0; error_count = 0
+    for item in items_to_delete:
+        folder_key = 'UPLOAD_FOLDER' if item.get('folder') == 'uploads' else 'THUMBNAIL_FOLDER'; base_path = app.config.get(folder_key)
+        if not base_path: print(f"Error: Invalid folder type '{item.get('folder')}' for item '{item.get('name')}'"); error_count += 1; continue
+        item_path = os.path.join(base_path, item.get('name', '')); item_path = os.path.abspath(item_path)
+        if not item_path.startswith(os.path.abspath(base_path)): print(f"Error: Attempted deletion outside designated folder: {item_path}"); error_count += 1; continue
+        try:
+            if os.path.isfile(item_path): os.remove(item_path); print(f"Deleted unexpected file: {item['folder']}/{item['name']}"); deleted_files += 1
+            elif os.path.isdir(item_path): print(f"Deleting unexpected directory: {item['folder']}/{item['name']}"); shutil.rmtree(item_path); print(f"Deleted unexpected directory: {item['folder']}/{item['name']}"); deleted_dirs += 1
+            else: print(f"Warning: Unexpected item not found for deletion (already removed?): {item['folder']}/{item['name']}")
+        except OSError as e: print(f"Error deleting unexpected item {item['folder']}/{item['name']}: {e}"); error_count += 1
+        except Exception as e: print(f"Unexpected error deleting item {item['folder']}/{item['name']}: {e}"); traceback.print_exc(); error_count += 1
+    return deleted_files, deleted_dirs, error_count
+def remove_missing_db_entries(missing_image_ids): # ... (no change) ...
+    deleted_count = 0; error_count = 0
+    if not missing_image_ids: return 0, 0
+    for image_id_str in missing_image_ids:
+        try:
+            image_id = int(image_id_str); image_record = db.session.get(ImageFile, image_id)
+            if image_record: print(f"Removing DB record for missing image ID {image_id} ('{image_record.display_name}')"); db.session.delete(image_record); deleted_count += 1
+            else: print(f"DB record for missing image ID {image_id} not found (already deleted?).")
+        except ValueError: print(f"Invalid image ID received for deletion: {image_id_str}"); error_count += 1
+        except Exception as e: print(f"Error deleting DB record for missing image ID {image_id_str}: {e}"); traceback.print_exc(); error_count += 1; db.session.rollback()
+    if error_count == 0:
+        try: db.session.commit()
+        except Exception as e: print(f"Error committing deletions of missing DB entries: {e}"); traceback.print_exc(); flash("Database error occurred while committing deletions.", "error"); db.session.rollback(); return 0, deleted_count + error_count
+    elif deleted_count > 0:
+        try: db.session.commit(); print(f"Committed deletion of {deleted_count} missing DB entries despite {error_count} errors.")
+        except Exception as e: print(f"Error committing partial deletions of missing DB entries: {e}"); traceback.print_exc(); flash("Database error occurred while committing partial deletions.", "error"); db.session.rollback(); return 0, deleted_count + error_count
+    return deleted_count, error_count
+# --- END Validation Helpers ---
+
+
+# --- Load initial settings into app context ---
+with app.app_context():
+    app.config['SHOWGO_CONFIG_DB'] = load_settings_from_db() # Load settings at startup
 
 # --- Authentication Setup ---
 auth = HTTPBasicAuth(realm="ShowGo Configuration Access")
-
 @auth.verify_password
-def verify_password(username, password):
-    config_auth = app.config['SHOWGO_CONFIG'].get('auth', {})
-    stored_username = config_auth.get('username')
-    stored_password_hash = config_auth.get('password_hash')
+def verify_password(username, password): # ... (no change) ...
+    # print(f"--- verify_password called for user: '{username}' ---"); # Keep debug off for now
+    with app.app_context(): stored_username = get_setting('auth_username', 'admin'); stored_password_hash = get_setting('auth_password_hash')
+    # print(f"DEBUG: Retrieved username from get_setting: '{stored_username}'"); print(f"DEBUG: Retrieved password hash from get_setting: '{stored_password_hash}'")
     if username == stored_username and stored_password_hash:
-        return check_password_hash(stored_password_hash, password)
-    return False
+        try: is_valid = check_password_hash(stored_password_hash, password); return is_valid
+        except Exception as e: print(f"ERROR: Exception during check_password_hash: {e}"); traceback.print_exc(); return False
+    else: return False
 
 # --- Routes ---
 @app.route('/')
-def slideshow_viewer():
-    """
-    Route for the main slideshow display page. Fetches data and renders template.
-    """
-    current_config = app.config['SHOWGO_CONFIG']
-    image_files = []; weather_data = None; rss_data = None
-    config_timestamp = 0 # Default timestamp
-
-    # --- Get Config Timestamp ---
-    try:
-        if os.path.exists(CONFIG_FILE):
-            config_timestamp = os.path.getmtime(CONFIG_FILE)
-    except Exception as e:
-        print(f"Error getting config timestamp: {e}")
-
-    # --- Get Image List ---
-    try:
-        if os.path.isdir(app.config['UPLOAD_FOLDER']):
-            image_files = [ f for f in os.listdir(app.config['UPLOAD_FOLDER']) if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f)) and allowed_file(f) ]
-            if current_config.get('slideshow', {}).get('image_order') == 'random': random.shuffle(image_files)
-            else: image_files.sort()
-        else: print(f"Upload directory not found: {app.config['UPLOAD_FOLDER']}")
-    except Exception as e: print(f"Error listing upload directory for slideshow: {e}")
-
-    # --- Fetch Weather Data ---
-    weather_config = current_config.get('widgets', {}).get('weather', {})
-    if weather_config.get('enabled') and weather_config.get('api_key') and weather_config.get('location'):
-        try:
-            api_key = weather_config['api_key']; location = weather_config['location']
-            weather_url = f"https://api.openweathermap.org/data/2.5/weather?q={location}&appid={api_key}&units=imperial"
-            response = requests.get(weather_url, timeout=10); response.raise_for_status()
-            weather_data = response.json()
-        except requests.exceptions.RequestException as e: print(f"Error fetching weather data: {e}")
-        except Exception as e: print(f"Unexpected error processing weather data: {e}"); traceback.print_exc()
-
-    # --- Fetch RSS Data ---
-    rss_config = current_config.get('widgets', {}).get('rss', {})
-    if rss_config.get('enabled') and rss_config.get('feed_url'):
-        try:
-            feed_url = rss_config['feed_url']; headers = {'User-Agent': 'ShowGo/1.0'}
-            rss_data_raw = feedparser.parse(feed_url, agent=headers['User-Agent'])
-            if rss_data_raw.bozo and isinstance(rss_data_raw.bozo_exception, Exception): print(f"Error parsing RSS feed (bozo): {rss_data_raw.bozo_exception}"); rss_data = None
-            elif rss_data_raw.entries: rss_data = [{'title': entry.get('title', 'No Title'), 'link': entry.get('link', '#')} for entry in rss_data_raw.entries[:5]]
-            else: print(f"RSS feed parsed but no entries found: {feed_url}"); rss_data = []
-        except Exception as e: print(f"Error fetching or parsing RSS feed: {e}"); traceback.print_exc()
-
-    # Pass all data, including the initial timestamp, to the template
-    return render_template('slideshow.html',
-                           config=current_config,
-                           images=image_files,
-                           weather=weather_data,
-                           rss_headlines=rss_data,
-                           initial_config_timestamp=config_timestamp) # Pass timestamp
-
+def slideshow_viewer(): # ... (no change) ...
+    with app.app_context():
+        current_config_dict = _settings_cache if _settings_cache is not None else load_settings_from_db()
+        if current_config_dict is None: print("CRITICAL ERROR: Could not load settings for slideshow viewer."); raise InternalServerError("Failed to load application configuration.")
+        config_timestamp = get_config_timestamp_from_db()
+        current_config = { "slideshow": { "duration_seconds": current_config_dict.get("slideshow_duration_seconds", 10), "transition_effect": current_config_dict.get("slideshow_transition_effect", "fade"), "image_order": current_config_dict.get("slideshow_image_order", "sequential"), "image_scaling": current_config_dict.get("slideshow_image_scaling", "cover") }, "watermark": { "enabled": current_config_dict.get("watermark_enabled", False), "text": current_config_dict.get("watermark_text", ""), "position": current_config_dict.get("watermark_position", "bottom-right") }, "widgets": { "time": {"enabled": current_config_dict.get("widgets_time_enabled", True)}, "weather": { "enabled": current_config_dict.get("widgets_weather_enabled", True), "location": current_config_dict.get("widgets_weather_location", "") }, "rss": { "enabled": current_config_dict.get("widgets_rss_enabled", False), "feed_url": current_config_dict.get("widgets_rss_feed_url", "") } }, "burn_in_prevention": { "enabled": current_config_dict.get("burn_in_prevention_enabled", False), "elements": current_config_dict.get("burn_in_prevention_elements", ["watermark"]), "interval_seconds": current_config_dict.get("burn_in_prevention_interval_seconds", 15), "strength_pixels": current_config_dict.get("burn_in_prevention_strength_pixels", 3) }, }
+        all_db_images, _ = get_database_images(); valid_images = []
+        for img in all_db_images:
+            if img.check_files_exist(): valid_images.append(img.get_disk_filename())
+            else: print(f"Slideshow: Skipping image ID {img.id} ('{img.display_name}') due to missing file(s).")
+        if not valid_images: print("Warning: No valid images found for slideshow.")
+        if current_config['slideshow']['image_order'] == 'random': random.shuffle(valid_images)
+        weather_data = None; weather_error = None; rss_data = None; rss_error = None; weather_config = current_config.get('widgets', {}).get('weather', {}); openweathermap_api_key = os.environ.get('OPENWEATHERMAP_API_KEY')
+        if weather_config.get('enabled'):
+            if weather_config.get('location') and openweathermap_api_key:
+                try: location = weather_config['location']; weather_url = f"https://api.openweathermap.org/data/2.5/weather?q={location}&appid={openweathermap_api_key}&units=imperial"; response = requests.get(weather_url, timeout=10); response.raise_for_status(); weather_data = response.json(); print(f"Successfully fetched weather for {location}")
+                except requests.exceptions.RequestException as e: print(f"Error fetching weather data: {e}"); weather_error = f"Network/API Error: {e}"
+                except Exception as e: print(f"Unexpected error processing weather data: {e}"); traceback.print_exc(); weather_error = f"Processing Error: {e}"
+            elif not openweathermap_api_key: print("Weather widget enabled, but OPENWEATHERMAP_API_KEY environment variable is not set."); weather_error = "API Key Missing"
+            elif not weather_config.get('location'): print("Weather widget enabled, but no location is set."); weather_error = "Location Missing"
+        rss_config = current_config.get('widgets', {}).get('rss', {});
+        if rss_config.get('enabled'):
+            if rss_config.get('feed_url'):
+                try:
+                    feed_url = rss_config['feed_url']; headers = {'User-Agent': 'ShowGo/1.0'}; socket_timeout = 10; rss_data_raw = feedparser.parse(feed_url, agent=headers['User-Agent'], socket_timeout=socket_timeout)
+                    if rss_data_raw.bozo: bozo_exception_msg = str(rss_data_raw.bozo_exception) if hasattr(rss_data_raw, 'bozo_exception') else "Unknown parsing issue"; print(f"Error parsing RSS feed (bozo): {feed_url} - {bozo_exception_msg}"); rss_error = f"Feed Parsing Error: {bozo_exception_msg}"
+                    elif rss_data_raw.entries: rss_data = [{'title': entry.get('title', 'No Title'), 'link': entry.get('link', '#')} for entry in rss_data_raw.entries[:15]]; print(f"Successfully parsed {len(rss_data)} RSS headlines from {feed_url}")
+                    else: print(f"RSS feed parsed but no entries found: {feed_url}"); rss_error = "Feed Empty"
+                except Exception as e: print(f"Error fetching or parsing RSS feed: {e}"); traceback.print_exc(); rss_error = f"Fetch/Parse Error: {e}"
+            else: print("RSS widget enabled, but no feed URL is set."); rss_error = "Feed URL Missing"
+        return render_template('slideshow.html', config=current_config, images=valid_images, weather=weather_data, weather_error=weather_error, rss_headlines=rss_data, rss_error=rss_error, initial_config_timestamp=config_timestamp)
 
 @app.route('/uploads/<path:filename>')
-def serve_uploaded_image(filename):
-    # (Keep serve_uploaded_image route the same)
-    requested_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    safe_path = os.path.abspath(requested_path)
+def serve_uploaded_image(filename): # ... (no change) ...
+    requested_path = os.path.join(app.config['UPLOAD_FOLDER'], filename); safe_path = os.path.abspath(requested_path)
     if not safe_path.startswith(os.path.abspath(app.config['UPLOAD_FOLDER'])): return "Forbidden", 403
     if not os.path.isfile(safe_path): return "Not Found", 404
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-# --- NEW API Route for Checking Config ---
 @app.route('/api/config/check')
-def check_config():
-    """Returns the last modification timestamp of the config file."""
-    try:
-        if os.path.exists(CONFIG_FILE):
-            timestamp = os.path.getmtime(CONFIG_FILE)
-            return jsonify({'timestamp': timestamp})
-        else:
-            # Config file missing, return 0 or error? Return 0 for simplicity.
-            return jsonify({'timestamp': 0})
-    except Exception as e:
-        print(f"Error checking config timestamp: {e}")
-        # Return an error status or a default timestamp
-        return jsonify({'error': 'Could not check config status', 'timestamp': 0}), 500
+def check_config(): # ... (no change) ...
+    timestamp = get_config_timestamp_from_db()
+    if timestamp is None: print("Error: check_config failed because get_config_timestamp_from_db returned None."); return jsonify({'error': 'Could not retrieve configuration status from server.', 'timestamp': 0}), 500
+    else: print(f"API check_config returning timestamp: {timestamp}"); return jsonify({'timestamp': timestamp})
 
-# --- Config page route ---
 @app.route('/config')
 @auth.login_required
-def config_page():
-    # (Keep config_page logic the same)
-    current_config = app.config['SHOWGO_CONFIG']
-    auth_config = current_config.get('auth', {})
-    if not auth_config.get('password_changed', False):
-        flash("Please change the default password.", "warning")
-        return render_template('config.html', config=current_config, images=[], force_password_change=True)
-    image_files = []
-    try:
-        if os.path.isdir(app.config['UPLOAD_FOLDER']):
-            image_files = sorted([ f for f in os.listdir(app.config['UPLOAD_FOLDER']) if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f)) and allowed_file(f) ])
-        else: print(f"Upload directory not found: {app.config['UPLOAD_FOLDER']}")
-    except Exception as e: print(f"Error listing upload directory: {e}"); flash("Error retrieving image list.", "error")
-    return render_template('config.html', config=current_config, images=image_files, force_password_change=False)
+def config_page(): # ... (no change) ...
+    with app.app_context():
+        current_config_dict = _settings_cache if _settings_cache is not None else load_settings_from_db()
+        if current_config_dict is None: print("CRITICAL ERROR: Could not load settings for config page."); flash("Error loading application configuration. Please check logs.", "error"); raise InternalServerError("Failed to load application configuration.")
+        password_changed = current_config_dict.get('auth_password_changed', False)
+        if not password_changed: flash("Please change the default password.", "warning"); config_for_template = { "auth": { "username": current_config_dict.get('auth_username', 'admin') } }; return render_template('config.html', config=config_for_template, images=[], missing_db_entries=[], orphaned_uuid_files=[], unexpected_files=[], unexpected_dirs=[], force_password_change=True)
+        current_config = { "slideshow": { "duration_seconds": current_config_dict.get("slideshow_duration_seconds", 10), "transition_effect": current_config_dict.get("slideshow_transition_effect", "fade"), "image_order": current_config_dict.get("slideshow_image_order", "sequential"), "image_scaling": current_config_dict.get("slideshow_image_scaling", "cover") }, "watermark": { "enabled": current_config_dict.get("watermark_enabled", False), "text": current_config_dict.get("watermark_text", ""), "position": current_config_dict.get("watermark_position", "bottom-right") }, "widgets": { "time": {"enabled": current_config_dict.get("widgets_time_enabled", True)}, "weather": { "enabled": current_config_dict.get("widgets_weather_enabled", True), "location": current_config_dict.get("widgets_weather_location", "") }, "rss": { "enabled": current_config_dict.get("widgets_rss_enabled", False), "feed_url": current_config_dict.get("widgets_rss_feed_url", "") } }, "burn_in_prevention": { "enabled": current_config_dict.get("burn_in_prevention_enabled", False), "elements": current_config_dict.get("burn_in_prevention_elements", ["watermark"]), "interval_seconds": current_config_dict.get("burn_in_prevention_interval_seconds", 15), "strength_pixels": current_config_dict.get("burn_in_prevention_strength_pixels", 3) }, "auth": { "username": current_config_dict.get('auth_username', 'admin') } }
+        all_db_images, db_uuids = get_database_images(); missing_db_entries = find_missing_files(all_db_images); orphaned_uuid_files, unexpected_files, unexpected_dirs = find_unexpected_items(db_uuids)
+        displayable_images = [img for img in all_db_images if img not in missing_db_entries]; displayable_images.sort(key=lambda img: img.uploaded_at, reverse=True)
+    return render_template('config.html', config=current_config, images=displayable_images, missing_db_entries=missing_db_entries, orphaned_uuid_files=orphaned_uuid_files, unexpected_files=unexpected_files, unexpected_dirs=unexpected_dirs, force_password_change=False)
 
-# --- Upload, Thumbnail, Delete, Save Settings routes ---
-# (Keep upload_image, serve_thumbnail, delete_images, save_settings routes the same)
 @app.route('/config/upload', methods=['POST'])
 @auth.login_required
-def upload_image():
+def upload_image(): # ... (no change) ...
     if not PIL_AVAILABLE: flash("Image processing library (Pillow) not installed. Cannot generate thumbnails.", "error")
     if 'image_files' not in request.files: flash('No file part in the request.', 'error'); return redirect(url_for('config_page'))
     files = request.files.getlist('image_files'); uploaded_count = 0; error_count = 0; thumb_error_count = 0
     if not files or files[0].filename == '': flash('No selected file.', 'error'); return redirect(url_for('config_page'))
     for file in files:
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename); save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            base, ext = os.path.splitext(filename); counter = 1
-            while os.path.exists(save_path): filename = f"{base}_{counter}{ext}"; save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename); counter += 1
+            original_filename = secure_filename(file.filename); file_ext = original_filename.rsplit('.', 1)[1].lower(); uuid_hex = uuid.uuid4().hex; disk_filename = f"{uuid_hex}.{file_ext}"; save_path = os.path.join(app.config['UPLOAD_FOLDER'], disk_filename)
             try:
-                file.save(save_path); uploaded_count += 1
-                if PIL_AVAILABLE:
-                    thumb_filename = filename; thumb_dest_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename)
-                    success, actual_thumb_path = generate_thumbnail(save_path, thumb_dest_path, THUMBNAIL_SIZE)
-                    if not success: thumb_error_count += 1
-            except RequestEntityTooLarge as e: print(f"Upload failed for {filename}: {e}"); flash('Upload failed: Total size of files exceeds the server limit.', 'error'); return redirect(url_for('config_page'))
-            except Exception as e: print(f"Error saving file {filename}: {e}"); flash(f'Error saving file {filename}.', 'error'); error_count += 1
+                file.save(save_path); thumb_disk_filename = f"{uuid_hex}{THUMBNAIL_EXT}"; thumb_dest_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_disk_filename); thumb_success, _ = generate_thumbnail(save_path, thumb_dest_path, THUMBNAIL_SIZE)
+                if not thumb_success: thumb_error_count += 1; print(f"Warning: Failed to generate thumbnail for {original_filename}")
+                display_name_default = os.path.splitext(original_filename)[0]; new_image = ImageFile(uuid_filename=uuid_hex, original_filename=original_filename, display_name=display_name_default, extension=file_ext); db.session.add(new_image); db.session.commit(); uploaded_count += 1
+            except RequestEntityTooLarge as e: print(f"Upload failed for {original_filename}: {e}"); flash('Upload failed: Total size exceeds limit.', 'error'); db.session.rollback(); return redirect(url_for('config_page'))
+            except Exception as e: print(f"Error processing file {original_filename}: {e}"); traceback.print_exc(); flash(f'Error processing file {original_filename}.', 'error'); error_count += 1; db.session.rollback()
         elif file and file.filename != '': flash(f'File type not allowed for {secure_filename(file.filename)}.', 'error'); error_count += 1
-    if uploaded_count > 0:
-        success_msg = f'Successfully uploaded {uploaded_count} image(s).'
-        if thumb_error_count > 0: success_msg += f' Failed to generate thumbnails for {thumb_error_count} image(s).'; flash(success_msg, 'warning')
-        else: flash(success_msg, 'success')
-    if error_count > 0: flash(f'Failed to upload {error_count} file(s) or invalid type.', 'error')
+    if uploaded_count > 0: success_msg = f'Successfully processed {uploaded_count} image(s).';
+    if error_count > 0: flash(f'Failed to upload or process {error_count} file(s).', 'error')
     return redirect(url_for('config_page'))
 
 @app.route('/thumbnails/<path:filename>')
-def serve_thumbnail(filename):
-    requested_path = os.path.join(app.config['THUMBNAIL_FOLDER'], filename)
-    safe_path = os.path.abspath(requested_path)
+def serve_thumbnail(filename): # ... (no change) ...
+    requested_path = os.path.join(app.config['THUMBNAIL_FOLDER'], filename); safe_path = os.path.abspath(requested_path)
     if not safe_path.startswith(os.path.abspath(app.config['THUMBNAIL_FOLDER'])): return "Forbidden", 403
-    if not os.path.isfile(safe_path):
-         placeholder = os.path.join(STATIC_FOLDER, 'images', 'placeholder_thumb.png')
-         if os.path.isfile(placeholder): return send_from_directory(os.path.join(STATIC_FOLDER, 'images'), 'placeholder_thumb.png')
-         else: return "Not Found", 404
+    if not os.path.isfile(safe_path): placeholder = os.path.join(STATIC_FOLDER, 'images', 'placeholder_thumb.png');
     return send_from_directory(app.config['THUMBNAIL_FOLDER'], filename)
 
 @app.route('/config/delete', methods=['POST'])
 @auth.login_required
-def delete_images():
-    images_to_delete = request.form.getlist('selected_images')
-    if not images_to_delete: flash("No images selected for deletion.", "warning"); return redirect(url_for('config_page'))
+def delete_images(): # ... (no change) ...
+    image_ids_to_delete = request.form.getlist('selected_images')
+    if not image_ids_to_delete: flash("No images selected for deletion.", "warning"); return redirect(url_for('config_page'))
     deleted_count = 0; error_count = 0
-    for filename in images_to_delete:
-        safe_filename = secure_filename(filename)
-        if safe_filename != filename: print(f"Warning: Filename '{filename}' sanitized to '{safe_filename}' during deletion check. Skipping."); error_count += 1; continue
-        original_path = os.path.join(app.config['UPLOAD_FOLDER'], safe_filename)
-        thumb_base, _ = os.path.splitext(safe_filename); thumb_filename_png = f"{thumb_base}.png"
-        thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumb_filename_png)
-        original_deleted = False
+    for image_id in image_ids_to_delete:
         try:
-            if os.path.isfile(original_path): os.remove(original_path); original_deleted = True
-            else: print(f"Original file not found for deletion: {original_path}")
-            if os.path.isfile(thumbnail_path): os.remove(thumbnail_path)
-            else: print(f"Thumbnail file not found for deletion: {thumbnail_path}")
-            if original_deleted: deleted_count += 1
-        except OSError as e: print(f"Error deleting file {safe_filename}: {e}"); error_count += 1
+            image_id_int = int(image_id); image_record = db.session.get(ImageFile, image_id_int)
+            if image_record:
+                disk_filename = image_record.get_disk_filename(); thumbnail_filename = image_record.get_thumbnail_filename(); original_path = os.path.join(app.config['UPLOAD_FOLDER'], disk_filename); thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumbnail_filename)
+                try:
+                    if os.path.isfile(original_path): os.remove(original_path)
+                    else: print(f"Warning: Original file not found during deletion: {original_path}")
+                    if os.path.isfile(thumbnail_path): os.remove(thumbnail_path)
+                    else: print(f"Warning: Thumbnail file not found during deletion: {thumbnail_path}")
+                except OSError as e: print(f"Error deleting files for image ID {image_id}: {e}"); flash(f"Error deleting files for '{image_record.display_name}', removing DB record anyway.", "warning")
+                db.session.delete(image_record); deleted_count += 1
+            else: print(f"Image record not found in DB for ID: {image_id}"); error_count += 1
+        except ValueError: print(f"Invalid image ID received: {image_id}"); error_count += 1
+        except Exception as e: print(f"Error processing deletion for image ID {image_id}: {e}"); traceback.print_exc(); error_count += 1; db.session.rollback()
+    try: db.session.commit()
+    except Exception as e: print(f"Error committing deletions to DB: {e}"); traceback.print_exc(); flash("Database error during deletion.", "error"); db.session.rollback(); deleted_count = 0; error_count = len(image_ids_to_delete)
     if deleted_count > 0: flash(f"Successfully deleted {deleted_count} image(s).", "success")
-    if error_count > 0: flash(f"Error occurred while deleting {error_count} file(s). Check logs.", "error")
+    if error_count > 0: flash(f"Error occurred while deleting {error_count} image(s). Check logs.", "error")
     return redirect(url_for('config_page'))
+
+# --- Cleanup Routes ---
+@app.route('/config/cleanup/missing-db', methods=['POST'])
+@auth.login_required
+def cleanup_missing_db_route(): # ... (no change) ...
+    image_ids = request.form.getlist('missing_image_ids')
+    if not image_ids: flash("No missing image entries selected for removal.", "warning"); return redirect(url_for('config_page'))
+    print(f"Attempting to remove DB entries for missing image IDs: {image_ids}")
+    deleted_count, error_count = remove_missing_db_entries(image_ids)
+    if error_count > 0: flash(f"Removed {deleted_count} missing database entries, but encountered errors with {error_count} entries. Check logs.", "error")
+    elif deleted_count > 0: flash(f"Successfully removed {deleted_count} database entries for missing images.", "success")
+    else: flash("No database entries were removed (perhaps they were already gone?).", "info")
+    return redirect(url_for('config_page'))
+
+@app.route('/config/cleanup/unexpected-items', methods=['POST'])
+@auth.login_required
+def cleanup_unexpected_items_route(): # ... (no change) ...
+    print("Starting unexpected items cleanup (including directories)..."); items_to_delete = []
+    with app.app_context():
+        _, db_uuids = get_database_images(); orphaned_uuid_files, unexpected_files, unexpected_dirs = find_unexpected_items(db_uuids)
+        items_to_delete.extend(orphaned_uuid_files); items_to_delete.extend(unexpected_files); items_to_delete.extend(unexpected_dirs)
+        if not items_to_delete: flash("No unexpected items found to clean up.", "info"); return redirect(url_for('config_page'))
+        print(f"Found {len(items_to_delete)} unexpected items (files and directories) to delete.")
+        deleted_files, deleted_dirs, error_count = cleanup_unexpected_items(items_to_delete)
+        deleted_items_msg = []
+        if deleted_files > 0: deleted_items_msg.append(f"{deleted_files} file(s)")
+        if deleted_dirs > 0: deleted_items_msg.append(f"{deleted_dirs} director(y/ies)")
+        if error_count > 0:
+            if deleted_items_msg: flash(f"Deleted {' and '.join(deleted_items_msg)}, but encountered errors deleting {error_count} item(s). Check logs.", "error")
+            else: flash(f"Cleanup failed. Encountered errors deleting {error_count} item(s). Check logs.", "error")
+        elif deleted_items_msg: flash(f"Successfully deleted {' and '.join(deleted_items_msg)}.", "success")
+        else: flash("Cleanup finished, but no items were deleted (perhaps they were removed by another process?).", "warning")
+    return redirect(url_for('config_page'))
+# --- END Cleanup Routes ---
 
 @app.route('/config/save', methods=['POST'])
 @auth.login_required
 def save_settings():
+    # ... (No change needed here after previous fix) ...
+    if not get_setting('auth_password_changed', False): flash("Cannot save settings until default password is changed.", "error"); return redirect(url_for('config_page'))
+    settings_saved = True
     try:
-        current_config = app.config['SHOWGO_CONFIG']
-        auth_config = current_config.get('auth', {})
-        if not auth_config.get('password_changed', False):
-             flash("Cannot save settings until default password is changed.", "error")
-             return redirect(url_for('config_page'))
-        if 'slideshow' not in current_config: current_config['slideshow'] = DEFAULT_CONFIG['slideshow'].copy()
-        current_config['slideshow']['duration_seconds'] = int(request.form.get('duration_seconds', 10))
-        current_config['slideshow']['transition_effect'] = request.form.get('transition_effect', 'fade')
-        current_config['slideshow']['image_order'] = request.form.get('image_order', 'sequential')
-        current_config['slideshow']['image_scaling'] = request.form.get('image_scaling', 'cover')
-        if 'watermark' not in current_config: current_config['watermark'] = DEFAULT_CONFIG['watermark'].copy()
-        current_config['watermark']['enabled'] = 'watermark_enabled' in request.form
-        current_config['watermark']['text'] = request.form.get('watermark_text', '')
-        current_config['watermark']['position'] = request.form.get('watermark_position', 'bottom-right')
-        if 'widgets' not in current_config: current_config['widgets'] = DEFAULT_CONFIG['widgets'].copy()
-        if 'time' not in current_config['widgets']: current_config['widgets']['time'] = DEFAULT_CONFIG['widgets']['time'].copy()
-        current_config['widgets']['time']['enabled'] = 'time_widget_enabled' in request.form
-        if 'weather' not in current_config['widgets']: current_config['widgets']['weather'] = DEFAULT_CONFIG['widgets']['weather'].copy()
-        current_config['widgets']['weather']['enabled'] = 'weather_widget_enabled' in request.form
-        current_config['widgets']['weather']['location'] = request.form.get('weather_location', '')
-        current_config['widgets']['weather']['api_key'] = request.form.get('weather_api_key', '')
-        if 'rss' not in current_config['widgets']: current_config['widgets']['rss'] = DEFAULT_CONFIG['widgets']['rss'].copy()
-        current_config['widgets']['rss']['enabled'] = 'rss_widget_enabled' in request.form
-        current_config['widgets']['rss']['feed_url'] = request.form.get('rss_feed_url', '')
-        if 'burn_in_prevention' not in current_config: current_config['burn_in_prevention'] = DEFAULT_CONFIG['burn_in_prevention'].copy()
-        current_config['burn_in_prevention']['enabled'] = 'burn_in_prevention_enabled' in request.form
-        current_config['burn_in_prevention']['elements'] = request.form.getlist('burn_in_elements')
-        current_config['burn_in_prevention']['interval_seconds'] = int(request.form.get('burn_in_interval_seconds', 15))
-        current_config['burn_in_prevention']['strength_pixels'] = int(request.form.get('burn_in_strength_pixels', 3))
-        if save_config(current_config):
-            app.config['SHOWGO_CONFIG'] = current_config
-            flash("Configuration saved successfully!", "success")
-        else: flash("Error saving configuration.", "error")
+        # Add 'kenburns' to the list of allowed values when saving
+        allowed_transitions = ['fade', 'slide', 'kenburns']
+        transition = request.form.get('transition_effect', 'fade')
+        if transition not in allowed_transitions:
+            flash(f"Invalid transition effect '{transition}'. Defaulting to 'fade'.", "warning")
+            transition = 'fade'
+        settings_saved &= save_setting('slideshow_transition_effect', transition)
+
+        settings_saved &= save_setting('slideshow_duration_seconds', int(request.form.get('duration_seconds', 10)))
+        # settings_saved &= save_setting('slideshow_transition_effect', request.form.get('transition_effect', 'fade')) # Replaced by logic above
+        settings_saved &= save_setting('slideshow_image_order', request.form.get('image_order', 'sequential'))
+        settings_saved &= save_setting('slideshow_image_scaling', request.form.get('image_scaling', 'cover'))
+        settings_saved &= save_setting('watermark_enabled', 'watermark_enabled' in request.form)
+        settings_saved &= save_setting('watermark_text', request.form.get('watermark_text', ''))
+        settings_saved &= save_setting('watermark_position', request.form.get('watermark_position', 'bottom-right'))
+        settings_saved &= save_setting('widgets_time_enabled', 'time_widget_enabled' in request.form)
+        settings_saved &= save_setting('widgets_weather_enabled', 'weather_widget_enabled' in request.form)
+        settings_saved &= save_setting('widgets_weather_location', request.form.get('weather_location', ''))
+        settings_saved &= save_setting('widgets_rss_enabled', 'rss_widget_enabled' in request.form)
+        settings_saved &= save_setting('widgets_rss_feed_url', request.form.get('rss_feed_url', ''))
+        settings_saved &= save_setting('burn_in_prevention_enabled', 'burn_in_prevention_enabled' in request.form)
+        settings_saved &= save_setting('burn_in_prevention_elements', request.form.getlist('burn_in_elements'))
+        settings_saved &= save_setting('burn_in_prevention_interval_seconds', int(request.form.get('burn_in_interval_seconds', 15)))
+        settings_saved &= save_setting('burn_in_prevention_strength_pixels', int(request.form.get('burn_in_strength_pixels', 3)))
+        if settings_saved: flash("Configuration saved successfully!", "success")
+        else: flash("An error occurred while saving some settings. Check logs.", "error")
     except ValueError: flash("Invalid input value provided (e.g., duration, interval, strength must be numbers).", "error")
     except Exception as e: print(f"Error processing save settings request: {e}"); traceback.print_exc(); flash("An unexpected error occurred while saving settings.", "error")
     return redirect(url_for('config_page'))
 
-# --- Password Change Routes ---
-# (Keep change_password and update_password routes the same)
 @app.route('/config/change-password', methods=['POST'])
 @auth.login_required
-def change_password():
-    new_password = request.form.get('new_password')
-    confirm_password = request.form.get('confirm_password')
-    if app.config['SHOWGO_CONFIG'].get('auth', {}).get('password_changed', False): flash("Password has already been changed.", "error"); return redirect(url_for('config_page'))
+def change_password(): # ... (no change) ...
+    if get_setting('auth_password_changed', False): flash("Password has already been changed.", "error"); return redirect(url_for('config_page'))
+    new_password = request.form.get('new_password'); confirm_password = request.form.get('confirm_password')
     if not new_password or not confirm_password: flash("New password fields are required.", "error"); return redirect(url_for('config_page'))
     if new_password != confirm_password: flash("New password and confirmation do not match.", "error"); return redirect(url_for('config_page'))
     if new_password == "showgo": flash("New password cannot be the default password.", "error"); return redirect(url_for('config_page'))
     try:
-        current_config = app.config['SHOWGO_CONFIG']
-        new_hash = generate_password_hash(new_password)
-        current_config['auth']['password_hash'] = new_hash
-        current_config['auth']['password_changed'] = True
-        if save_config(current_config):
-            app.config['SHOWGO_CONFIG'] = current_config
-            flash("Password changed successfully! You can now configure ShowGo.", "success")
-            return redirect(url_for('config_page'))
+        new_hash = generate_password_hash(new_password); saved_hash = save_setting('auth_password_hash', new_hash); saved_flag = save_setting('auth_password_changed', True)
+        if saved_hash and saved_flag: flash("Password changed successfully! You can now configure ShowGo.", "success"); return redirect(url_for('config_page'))
         else: flash("Error saving new password configuration.", "error"); return redirect(url_for('config_page'))
     except Exception as e: print(f"Error processing initial password change: {e}"); traceback.print_exc(); flash("An unexpected error occurred while changing the password.", "error"); return redirect(url_for('config_page'))
 
 @app.route('/config/update-password', methods=['POST'])
 @auth.login_required
-def update_password():
-    current_password = request.form.get('update_current_password')
-    new_password = request.form.get('update_new_password')
-    confirm_password = request.form.get('update_confirm_password')
-    if not app.config['SHOWGO_CONFIG'].get('auth', {}).get('password_changed', False): flash("Cannot update password until default is changed.", "error"); return redirect(url_for('config_page'))
+def update_password(): # ... (no change) ...
+    if not get_setting('auth_password_changed', False): flash("Cannot update password until default is changed.", "error"); return redirect(url_for('config_page'))
+    current_password = request.form.get('update_current_password'); new_password = request.form.get('update_new_password'); confirm_password = request.form.get('update_confirm_password')
     if not current_password or not new_password or not confirm_password: flash("All fields are required to update password.", "error"); return redirect(url_for('config_page'))
     if new_password != confirm_password: flash("New password and confirmation do not match.", "error"); return redirect(url_for('config_page'))
-    config_auth = app.config['SHOWGO_CONFIG'].get('auth', {}); stored_password_hash = config_auth.get('password_hash')
+    stored_password_hash = get_setting('auth_password_hash')
     if not stored_password_hash or not check_password_hash(stored_password_hash, current_password): flash("Incorrect current password.", "error"); return redirect(url_for('config_page'))
     if check_password_hash(stored_password_hash, new_password): flash("New password cannot be the same as the current password.", "error"); return redirect(url_for('config_page'))
     try:
-        current_config = app.config['SHOWGO_CONFIG']
         new_hash = generate_password_hash(new_password)
-        current_config['auth']['password_hash'] = new_hash
-        if save_config(current_config):
-            app.config['SHOWGO_CONFIG'] = current_config
-            flash("Password updated successfully!", "success")
+        if save_setting('auth_password_hash', new_hash): flash("Password updated successfully!", "success")
         else: flash("Error saving updated password configuration.", "error")
     except Exception as e: print(f"Error processing password update: {e}"); traceback.print_exc(); flash("An unexpected error occurred while updating the password.", "error")
     return redirect(url_for('config_page'))
 
-# --- Running the App ---
-if __name__ == '__main__':
-    if not PIL_AVAILABLE: print("-------------------------------------------------------\nWARNING: Pillow library not installed. Thumbnails disabled.\n         pip install Pillow\n-------------------------------------------------------")
-    print(f"Base directory: {BASE_DIR}")
-    print(f"Upload folder: {UPLOAD_FOLDER}")
-    print(f"Thumbnail folder: {THUMBNAIL_FOLDER}")
-    print(f"Config folder: {CONFIG_FOLDER}")
-    app.run(debug=True, host='0.0.0.0')
+# --- Custom Error Handlers ---
+@app.errorhandler(404)
+@app.errorhandler(NotFound) # Catch specific Werkzeug exception too
+def page_not_found(error): # ... (no change) ...
+    return render_template('404.html'), 404
 
+@app.errorhandler(500)
+@app.errorhandler(InternalServerError) # Catch specific Werkzeug exception
+@app.errorhandler(Exception) # Catch general Python exceptions NOT handled elsewhere
+def internal_server_error(error): # ... (no change) ...
+    original_exception = getattr(error, "original_exception", error)
+    print(f"!!! 500 Error Encountered: {original_exception} !!!")
+    traceback.print_exc() # Print the full traceback to the console
+    try: db.session.rollback(); print("Database session rolled back due to 500 error.")
+    except Exception as db_err: print(f"Error rolling back database session: {db_err}")
+    return render_template('500.html'), 500
+
+@app.errorhandler(413)
+@app.errorhandler(RequestEntityTooLarge)
+def request_entity_too_large(error): # ... (no change) ...
+    flash(f"Upload failed: File(s) exceed the maximum allowed size ({app.config['MAX_CONTENT_LENGTH'] // 1024 // 1024} MB).", "error")
+    return redirect(url_for('config_page'))
+# --- END Custom Error Handlers ---
+
+
+# --- REVISED: init-db command ---
+@app.cli.command('init-db')
+def init_db_command(): # ... (no change) ...
+    try:
+        db.create_all(); print('Initialized/Checked database tables.')
+        settings_added = 0; settings_updated = 0
+        for key, default_value in DEFAULT_SETTINGS_DB.items():
+            setting = db.session.get(Setting, key)
+            if setting is None: print(f"Adding missing setting: {key}"); setting = Setting(key=key, value=default_value); db.session.add(setting); settings_added += 1
+        if settings_added > 0 or settings_updated > 0: db.session.commit(); print(f"Default settings populated/updated ({settings_added} added, {settings_updated} updated).")
+        else: print("All default settings already present.")
+        old_api_key_setting = db.session.get(Setting, 'widgets_weather_api_key')
+        if old_api_key_setting: print("Removing obsolete 'widgets_weather_api_key' setting from database..."); db.session.delete(old_api_key_setting); db.session.commit(); print("Obsolete setting removed.")
+    except Exception as e: print(f"Error during DB initialization: {e}"); traceback.print_exc(); db.session.rollback()
+# --- END REVISED init-db ---
+
+
+# --- Running the App ---
+if __name__ == '__main__': # ... (no change) ...
+    if not PIL_AVAILABLE: print("-------------------------------------------------------\nWARNING: Pillow library not installed. Thumbnails disabled.\n         pip install Pillow\n-------------------------------------------------------")
+    print(f"Base directory: {BASE_DIR}"); print(f"Upload folder: {UPLOAD_FOLDER}"); print(f"Thumbnail folder: {THUMBNAIL_FOLDER}"); print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    if not os.environ.get('OPENWEATHERMAP_API_KEY'): print("------------------------------------------------------------------\nWARNING: OPENWEATHERMAP_API_KEY environment variable not set.\n         Weather widget will not function without it.\n         Add it to your .env file or environment.\n------------------------------------------------------------------")
+    app.run(debug=True, host='0.0.0.0')
