@@ -10,7 +10,7 @@
     <div class="config-section border-yellow-500 border-2">
         <h3 class="text-lg font-medium text-yellow-400 mb-2">Warning: Missing Image Files</h3>
         <p class="text-gray-300 mb-4 text-sm">The following database entries point to image or thumbnail files that are missing from the filesystem. You should either restore the missing files or remove the database entries.</p>
-        <form id="cleanup-missing-db-form" action="{{ url_for('cleanup_missing_db_route') }}" method="POST">
+        <form id="cleanup-missing-db-form" action="{{ url_for('config_bp.cleanup_missing_db_route') }}" method="POST">
             <ul class="list-disc list-inside mb-4 text-sm space-y-1">
                 {% for image in missing_db_entries %}
                 <li class="text-gray-300">
@@ -19,7 +19,7 @@
                 </li>
                 {% endfor %}
             </ul>
-            <button type="submit" class="btn btn-warning btn-sm">Remove {{ missing_db_entries|length }} Missing Database Entries</button> {# Smaller button #}
+            <button type="submit" class="btn btn-warning btn-sm">Remove {{ missing_db_entries|length }} Missing Database Entries</button>
         </form>
     </div>
     {% endif %}
@@ -28,49 +28,53 @@
     <div class="config-section border-red-500 border-2">
         <h3 class="text-lg font-medium text-red-400 mb-2">Warning: Unexpected Items Found</h3>
         <p class="text-gray-300 mb-4 text-sm">The following items exist in the uploads or thumbnails folders but do not correspond to database entries or expected formats. Clicking the button below will permanently delete these items.</p>
-        <form id="cleanup-unexpected-items-form" action="{{ url_for('cleanup_unexpected_items_route') }}" method="POST">
+        <form id="cleanup-unexpected-items-form" action="{{ url_for('config_bp.cleanup_unexpected_items_route') }}" method="POST">
             {% if orphaned_uuid_files %} <h4 class="font-semibold text-gray-200 mb-1 mt-3 text-sm">Orphaned UUID Files:</h4> <p class="text-xs text-gray-400 mb-2">(Files named like images but not in the database)</p> <ul class="list-disc list-inside mb-3 text-sm text-gray-400"> {% for item in orphaned_uuid_files %}<li>{{ item.folder }}/{{ item.name }}</li>{% endfor %} </ul> {% endif %}
             {% if unexpected_files %} <h4 class="font-semibold text-gray-200 mb-1 mt-3 text-sm">Other Unexpected Files:</h4> <p class="text-xs text-gray-400 mb-2">(Files not matching expected naming or format)</p> <ul class="list-disc list-inside mb-3 text-sm text-gray-400"> {% for item in unexpected_files %}<li>{{ item.folder }}/{{ item.name }}</li>{% endfor %} </ul> {% endif %}
             {% if unexpected_dirs %} <h4 class="font-semibold text-gray-200 mb-1 mt-3 text-sm">Unexpected Directories:</h4> <p class="text-xs text-red-400 mb-2 font-semibold">(Subfolders found - THESE WILL BE DELETED)</p> <ul class="list-disc list-inside mb-3 text-sm text-gray-400"> {% for item in unexpected_dirs %}<li>{{ item.folder }}/{{ item.name }}/</li>{% endfor %} </ul> {% endif %}
             {% set items_to_delete_count = (orphaned_uuid_files|length) + (unexpected_files|length) + (unexpected_dirs|length) %}
-            {% if items_to_delete_count > 0 %} <button type="submit" class="btn btn-danger btn-sm mt-2">Delete {{ items_to_delete_count }} Unexpected Item(s)</button> {# Smaller button #} {% endif %}
+            {% if items_to_delete_count > 0 %} <button type="submit" class="btn btn-danger btn-sm mt-2">Delete {{ items_to_delete_count }} Unexpected Item(s)</button> {% endif %}
         </form>
     </div>
     {% endif %}
 
     <div class="config-section">
-        <form action="{{ url_for('upload_image') }}" method="POST" enctype="multipart/form-data" class="mb-6 border-b border-gray-700 pb-6">
+        <form id="upload-image-form" action="{{ url_for('config_bp.upload_image') }}" method="POST" enctype="multipart/form-data" class="mb-6 border-b border-gray-700 pb-6">
             <h3 class="text-lg font-medium text-gray-300 mb-3">Upload New Images</h3>
             <div class="form-group">
                 <label for="image_files">Select image files:</label>
                 <input type="file" id="image_files" name="image_files" multiple accept=".png,.jpg,.jpeg,.gif,.webp" required>
                 <p class="mt-1 text-xs text-gray-500">Max total upload size: 256 MB. Allowed types: PNG, JPG, JPEG, GIF, WEBP.</p>
             </div>
-            <button type="submit" class="btn btn-primary">Upload Images</button>
+            <div class="flex items-center space-x-3">
+                 <button type="submit" id="upload-button" class="btn btn-primary">Upload Images</button>
+                 <div id="upload-spinner" class="hidden w-5 h-5 border-t-2 border-b-2 border-indigo-200 rounded-full animate-spin"></div>
+            </div>
         </form>
 
-        <form id="delete-images-form" action="{{ url_for('delete_images') }}" method="POST">
+        <form id="delete-images-form" action="{{ url_for('config_bp.delete_images') }}" method="POST">
             <div class="flex justify-between items-center mb-3">
                  <h3 class="text-lg font-medium text-gray-300">Manage Uploaded Images</h3>
-                 <button type="submit" id="delete-button" class="btn btn-danger btn-sm" disabled>Delete Selected (<span id="selected-count">0</span>)</button> {# Moved button up, smaller #}
+                 <button type="submit" id="delete-button" class="btn btn-danger btn-sm" disabled>Delete Selected (<span id="selected-count">0</span>)</button>
             </div>
              <p class="text-sm text-gray-400 mb-4">Select images to delete. Click an image to select/deselect.</p>
             {% if images %}
             <div id="thumbnail-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 mb-4">
                 {% for image in images %}
-                <div class="thumbnail-item">
-                    <input type="checkbox" name="selected_images" value="{{ image.id }}" id="img-{{ image.id }}" class="image-checkbox">
-                    <label for="img-{{ image.id }}">
-                        <img src="{{ url_for('serve_thumbnail', filename=image.get_thumbnail_filename()) }}"
+                <div class="thumbnail-item"> {# Add relative positioning if not already present #}
+                    <input type="checkbox" name="selected_images" value="{{ image.id }}" id="img-{{ image.id }}" class="image-checkbox sr-only">
+                    <label for="img-{{ image.id }}" class="block cursor-pointer">
+                        <img src="{{ url_for('main_bp.serve_thumbnail', filename=image.get_thumbnail_filename()) }}"
                              alt="{{ image.display_name }}"
                              loading="lazy"
+                             class="w-full h-[100px] object-cover block"
                              onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/placeholder_thumb.png') }}';">
                         <div class="filename" title="{{ image.display_name }} ({{ image.original_filename }})">{{ image.display_name }}</div>
                     </label>
+                    {# The ::after pseudo-element will be styled by CSS based on parent class #}
                 </div>
                 {% endfor %}
             </div>
-            {# Button moved up #}
             {% else %}
             <p class="text-gray-500">No valid images uploaded yet.</p>
             {% endif %}
@@ -82,26 +86,78 @@
 {# Add JS specific to this page #}
 {% block page_js %}
 <script>
-    // Image deletion selection logic & cleanup confirmations
     document.addEventListener('DOMContentLoaded', function() {
         const grid = document.getElementById('thumbnail-grid');
         const deleteButton = document.getElementById('delete-button');
         const selectedCountSpan = document.getElementById('selected-count');
         const deleteForm = document.getElementById('delete-images-form');
+        const uploadForm = document.getElementById('upload-image-form');
+        const uploadButton = document.getElementById('upload-button');
+        const uploadSpinner = document.getElementById('upload-spinner');
 
+        // --- Image Deletion Logic ---
         if (grid && deleteButton && selectedCountSpan && deleteForm) {
             function updateDeleteButtonState() {
                 const checkedCheckboxes = grid.querySelectorAll('.image-checkbox:checked');
                 const count = checkedCheckboxes.length;
                 selectedCountSpan.textContent = count;
                 deleteButton.disabled = count === 0;
+
+                // --- MODIFIED: Toggle class on parent div ---
+                grid.querySelectorAll('.thumbnail-item').forEach(item => {
+                    const checkbox = item.querySelector('.image-checkbox');
+                    if (checkbox) { // Ensure checkbox exists
+                        if (checkbox.checked) {
+                            item.classList.add('is-selected'); // Add class to the div
+                        } else {
+                            item.classList.remove('is-selected'); // Remove class from the div
+                        }
+                    }
+                });
+                 // --- END MODIFICATION ---
             }
-            grid.addEventListener('change', function(event) { if (event.target.classList.contains('image-checkbox')) { updateDeleteButtonState(); } });
-            grid.addEventListener('click', function(event) { const thumbItem = event.target.closest('.thumbnail-item'); if (thumbItem) { const checkbox = thumbItem.querySelector('.image-checkbox'); if (checkbox && event.target !== checkbox) { checkbox.checked = !checkbox.checked; checkbox.dispatchEvent(new Event('change', { bubbles: true })); } } });
-            deleteForm.addEventListener('submit', function(event) { const selectedCount = parseInt(selectedCountSpan.textContent, 10); if (selectedCount > 0) { if (!confirm(`Are you sure you want to delete ${selectedCount} selected image(s)? This cannot be undone.`)) { event.preventDefault(); } } else { event.preventDefault(); } });
-            updateDeleteButtonState();
+
+            // Click Listener (no change needed here, it toggles checkbox)
+            grid.addEventListener('click', function(event) {
+                 const thumbItem = event.target.closest('.thumbnail-item');
+                 if (thumbItem) {
+                     const checkbox = thumbItem.querySelector('.image-checkbox');
+                     if (checkbox) {
+                         checkbox.checked = !checkbox.checked;
+                         checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                     }
+                 }
+            });
+            // Change Listener (triggers the update function)
+             grid.addEventListener('change', function(event) {
+                 if (event.target.classList.contains('image-checkbox')) {
+                     updateDeleteButtonState();
+                 }
+             });
+
+            deleteForm.addEventListener('submit', function(event) {
+                const selectedCount = parseInt(selectedCountSpan.textContent, 10);
+                if (selectedCount > 0) {
+                    if (!confirm(`Are you sure you want to delete ${selectedCount} selected image(s)? This cannot be undone.`)) {
+                        event.preventDefault();
+                    }
+                } else {
+                     event.preventDefault();
+                }
+            });
+            updateDeleteButtonState(); // Initial check
         }
 
+        // --- Upload Loading Indicator ---
+        if (uploadForm && uploadButton && uploadSpinner) {
+            uploadForm.addEventListener('submit', function() {
+                uploadSpinner.classList.remove('hidden');
+                uploadButton.disabled = true;
+                uploadButton.textContent = 'Uploading...';
+            });
+        }
+
+         // --- Cleanup Form Confirmations ---
          const cleanupMissingDbForm = document.getElementById('cleanup-missing-db-form');
          if (cleanupMissingDbForm) { cleanupMissingDbForm.addEventListener('submit', function(event) { const count = cleanupMissingDbForm.querySelectorAll('input[name="missing_image_ids"]').length; if (!confirm(`Are you sure you want to remove ${count} database entries for images with missing files? This cannot be undone.`)) { event.preventDefault(); } }); }
          const cleanupUnexpectedItemsForm = document.getElementById('cleanup-unexpected-items-form');

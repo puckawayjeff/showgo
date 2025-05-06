@@ -5,7 +5,8 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto"> {# Constrain width for readability #}
-    <form action="{{ url_for('config_general') }}" method="POST">
+    {# Use blueprint name in url_for #}
+    <form action="{{ url_for('config_bp.config_general') }}" method="POST">
         {# Slideshow Settings Section #}
         <div class="config-section">
             <h2>Slideshow Settings</h2>
@@ -71,9 +72,19 @@
                         <input type="checkbox" id="rss_widget_enabled" name="rss_widget_enabled" class="form-checkbox" {% if config.widgets.rss.enabled %}checked{% endif %}>
                         <span class="checkbox-label font-medium">Enable RSS Ticker</span>
                     </label>
-                    <div class="form-group mb-0 pl-6"> {# Indent options #}
-                        <label for="rss_feed_url">RSS Feed URL</label>
-                        <input type="url" id="rss_feed_url" name="rss_feed_url" value="{{ config.widgets.rss.feed_url }}" class="form-input" placeholder="https://example.com/feed.xml">
+                    <div class="pl-6 space-y-4"> {# Indent options and add spacing #}
+                        <div class="form-group mb-0">
+                            <label for="rss_feed_url">RSS Feed URL</label>
+                            <input type="url" id="rss_feed_url" name="rss_feed_url" value="{{ config.widgets.rss.feed_url }}" class="form-input" placeholder="https://example.com/feed.xml">
+                        </div>
+                        <div class="form-group mb-0">
+                            <label for="rss_scroll_speed">Scroll Speed</label>
+                            <select id="rss_scroll_speed" name="rss_scroll_speed" class="form-select md:w-1/2"> {# Limit width #}
+                                <option value="slow" {% if config.widgets.rss.scroll_speed == 'slow' %}selected{% endif %}>Slow</option>
+                                <option value="medium" {% if config.widgets.rss.scroll_speed == 'medium' %}selected{% endif %}>Medium</option>
+                                <option value="fast" {% if config.widgets.rss.scroll_speed == 'fast' %}selected{% endif %}>Fast</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>

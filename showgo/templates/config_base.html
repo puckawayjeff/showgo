@@ -25,22 +25,28 @@
             </div>
             <nav class="flex-grow p-4 space-y-2">
                 {# Use active_page variable passed from route to highlight #}
-                <a href="{{ url_for('config_general') }}"
+                {# Use blueprint name in url_for #}
+                <a href="{{ url_for('config_bp.config_general') }}"
                    class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 hover:text-white {{ 'bg-gray-700 text-white' if active_page == 'general' else 'text-gray-400' }}">
                    {# <i class="fas fa-sliders-h mr-3"></i> #} General Settings
                 </a>
-                <a href="{{ url_for('config_images') }}"
+                <a href="{{ url_for('config_bp.config_images') }}"
                    class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 hover:text-white {{ 'bg-gray-700 text-white' if active_page == 'images' else 'text-gray-400' }}">
                    {# <i class="fas fa-images mr-3"></i> #} Image Management
                 </a>
                 {# Add more links here later for video, collections etc. #}
+                 <a href="{{ url_for('main_bp.slideshow_viewer') }}" target="_blank"
+                   class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-gray-700 hover:text-white">
+                   {# <i class="fas fa-tv mr-3"></i> #} View Slideshow
+                </a>
             </nav>
             <div class="p-4 border-t border-gray-700 space-y-2">
                  <button id="change-password-btn" type="button"
                     class="w-full text-left flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-gray-700 hover:text-white">
                     {# <i class="fas fa-key mr-3"></i> #} Change Password
                 </button>
-                 <a href="{{ url_for('logout') }}"
+                 {# Use blueprint name in url_for #}
+                 <a href="{{ url_for('config_bp.logout') }}"
                     class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-gray-700 hover:text-white">
                      {# <i class="fas fa-sign-out-alt mr-3"></i> #} Logout
                  </a>
@@ -72,10 +78,11 @@
     <div id="password-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
         <div class="config-section max-w-md w-full m-4"> {# Re-use config-section style #}
              <div class="flex justify-between items-center mb-4 border-b border-gray-600 pb-2">
-                 <h2 class="text-xl font-semibold text-gray-200 mb-0 pb-0 border-b-0">Update Password</h2>
+                 <h3 class="text-xl font-semibold text-gray-200 mb-0 pb-0 border-b-0">Update Password</h3> {# Changed to h3 #}
                  <button id="close-modal-btn" type="button" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button> {# Improved close button #}
              </div>
-            <form action="{{ url_for('update_password') }}" method="POST" id="update-password-form">
+             {# Use blueprint name in url_for #}
+            <form action="{{ url_for('config_bp.update_password') }}" method="POST" id="update-password-form">
                  <div class="grid grid-cols-1 gap-4">
                     <div class="form-group">
                         <label for="update_current_password">Current Password</label>
@@ -110,45 +117,20 @@
             if (modal && updateForm) {
                 updateForm.reset(); // Clear fields when opening
                 modal.classList.remove('hidden');
-                // Optional: Focus first field
-                document.getElementById('update_current_password')?.focus();
-            } else {
-                 console.warn("Modal elements not found for opening.");
-            }
+                document.getElementById('update_current_password')?.focus(); // Optional: Focus first field
+            } else { console.warn("Modal elements not found for opening."); }
         }
 
         function closeModal() {
-             if (modal) {
-                 modal.classList.add('hidden');
-             } else {
-                  console.warn("Modal element not found for closing.");
-             }
+             if (modal) { modal.classList.add('hidden'); }
+             else { console.warn("Modal element not found for closing."); }
         }
 
-        if (openBtn) {
-            openBtn.addEventListener('click', openModal);
-        }
-        if (closeBtn) {
-            closeBtn.addEventListener('click', closeModal);
-        }
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', closeModal);
-        }
-        // Optional: Close modal if clicking outside the content area
-        if (modal) {
-            modal.addEventListener('click', (event) => {
-                 // Check if the click target is the modal backdrop itself, not its children
-                 if (event.target === modal) {
-                     closeModal();
-                 }
-            });
-        }
-        // Optional: Close modal on Escape key press
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
-                closeModal();
-            }
-        });
+        if (openBtn) { openBtn.addEventListener('click', openModal); }
+        if (closeBtn) { closeBtn.addEventListener('click', closeModal); }
+        if (cancelBtn) { cancelBtn.addEventListener('click', closeModal); }
+        if (modal) { modal.addEventListener('click', (event) => { if (event.target === modal) { closeModal(); } }); }
+        document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) { closeModal(); } });
 
     </script>
      {# Allow specific pages to add their own JS via a block #}
