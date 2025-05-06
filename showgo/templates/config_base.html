@@ -30,11 +30,12 @@
                    class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 hover:text-white {{ 'bg-gray-700 text-white' if active_page == 'general' else 'text-gray-400' }}">
                    {# <i class="fas fa-sliders-h mr-3"></i> #} General Settings
                 </a>
-                <a href="{{ url_for('config_bp.config_images') }}"
-                   class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 hover:text-white {{ 'bg-gray-700 text-white' if active_page == 'images' else 'text-gray-400' }}">
-                   {# <i class="fas fa-images mr-3"></i> #} Image Management
+                {# *** UPDATED LINK: Text and Route *** #}
+                <a href="{{ url_for('config_bp.config_media') }}"
+                   class="flex items-center px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700 hover:text-white {{ 'bg-gray-700 text-white' if active_page == 'media' else 'text-gray-400' }}">
+                   {# <i class="fas fa-photo-video mr-3"></i> #} Media Management {# Updated Text #}
                 </a>
-                {# Add more links here later for video, collections etc. #}
+                {# Add more links here later for collections etc. #}
                  <a href="{{ url_for('main_bp.slideshow_viewer') }}" target="_blank"
                    class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:bg-gray-700 hover:text-white">
                    {# <i class="fas fa-tv mr-3"></i> #} View Slideshow
@@ -75,6 +76,7 @@
         </main>
     </div>
 
+    {# --- Password Modal (No changes needed) --- #}
     <div id="password-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
         <div class="config-section max-w-md w-full m-4"> {# Re-use config-section style #}
              <div class="flex justify-between items-center mb-4 border-b border-gray-600 pb-2">
@@ -105,33 +107,20 @@
         </div>
     </div>
 
+    {# --- Modal JS (No changes needed) --- #}
     <script>
-        // Modal Handling
         const modal = document.getElementById('password-modal');
         const openBtn = document.getElementById('change-password-btn');
         const closeBtn = document.getElementById('close-modal-btn');
         const cancelBtn = document.getElementById('cancel-modal-btn');
         const updateForm = document.getElementById('update-password-form');
-
-        function openModal() {
-            if (modal && updateForm) {
-                updateForm.reset(); // Clear fields when opening
-                modal.classList.remove('hidden');
-                document.getElementById('update_current_password')?.focus(); // Optional: Focus first field
-            } else { console.warn("Modal elements not found for opening."); }
-        }
-
-        function closeModal() {
-             if (modal) { modal.classList.add('hidden'); }
-             else { console.warn("Modal element not found for closing."); }
-        }
-
+        function openModal() { if (modal && updateForm) { updateForm.reset(); modal.classList.remove('hidden'); document.getElementById('update_current_password')?.focus(); } else { console.warn("Modal elements not found for opening."); } }
+        function closeModal() { if (modal) { modal.classList.add('hidden'); } else { console.warn("Modal element not found for closing."); } }
         if (openBtn) { openBtn.addEventListener('click', openModal); }
         if (closeBtn) { closeBtn.addEventListener('click', closeModal); }
         if (cancelBtn) { cancelBtn.addEventListener('click', closeModal); }
         if (modal) { modal.addEventListener('click', (event) => { if (event.target === modal) { closeModal(); } }); }
         document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) { closeModal(); } });
-
     </script>
      {# Allow specific pages to add their own JS via a block #}
      {% block page_js %}{% endblock %}

@@ -1,0 +1,243 @@
+{# RENAMED from config_images.html #}
+{% extends "config_base.html" %}
+
+{% block page_title %}Media Management{% endblock %}
+{% block content_title %}Media Management{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto"> {# Wider container for media grid #}
+
+    {# --- Validation Section --- #}
+    {% if missing_db_entries %}
+    <div class="config-section border-yellow-500 border-2">
+        <h3 class="text-lg font-medium text-yellow-400 mb-2">Warning: Missing Media Files</h3>
+        <p class="text-gray-300 mb-4 text-sm">The following database entries point to media files that are missing from the filesystem. They will not appear in the slideshow or the grid below. You should either restore the missing files or remove the database entries.</p>
+        {# Use updated route name #}
+        <form id="cleanup-missing-db-form" action="{{ url_for('config_bp.cleanup_missing_media_db_route') }}" method="POST">
+            <ul class="list-disc list-inside mb-4 text-sm space-y-1">
+                {% for media in missing_db_entries %}
+                <li class="text-gray-300">
+                    {# Use updated form input name #}
+                    <input type="hidden" name="missing_media_ids" value="{{ media.id }}">
+                    <strong>{{ media.display_name }}</strong> (Type: {{ media.media_type | capitalize }}, ID: {{ media.id }}, Original: {{ media.original_filename }}) - Missing: {{ ', '.join(media.missing_info) }}
+                </li>
+                {% endfor %}
+            </ul>
+            <button type="submit" class="btn btn-warning btn-sm">Remove {{ missing_db_entries|length }} Missing Database Entries</button>
+        </form>
+    </div>
+    {% endif %}
+    {% set total_unexpected = (orphaned_uuid_files|length) + (unexpected_files|length) + (unexpected_dirs|length) %}
+    {% if total_unexpected > 0 %}
+    <div class="config-section border-red-500 border-2">
+        <h3 class="text-lg font-medium text-red-400 mb-2">Warning: Unexpected Items Found</h3>
+        <p class="text-gray-300 mb-4 text-sm">The following items exist in the uploads or thumbnails folders but do not correspond to database entries or expected formats. Clicking the button below will permanently delete these items.</p>
+        {# Use updated route name #}
+        <form id="cleanup-unexpected-items-form" action="{{ url_for('config_bp.cleanup_unexpected_items_route') }}" method="POST">
+            {% if orphaned_uuid_files %} <h4 class="font-semibold text-gray-200 mb-1 mt-3 text-sm">Orphaned UUID Files:</h4> <p class="text-xs text-gray-400 mb-2">(Files named like media but not in the database)</p> <ul class="list-disc list-inside mb-3 text-sm text-gray-400"> {% for item in orphaned_uuid_files %}<li>{{ item.folder }}/{{ item.name }}</li>{% endfor %} </ul> {% endif %}
+            {% if unexpected_files %} <h4 class="font-semibold text-gray-200 mb-1 mt-3 text-sm">Other Unexpected Files:</h4> <p class="text-xs text-gray-400 mb-2">(Files not matching expected naming or format)</p> <ul class="list-disc list-inside mb-3 text-sm text-gray-400"> {% for item in unexpected_files %}<li>{{ item.folder }}/{{ item.name }}</li>{% endfor %} </ul> {% endif %}
+            {% if unexpected_dirs %} <h4 class="font-semibold text-gray-200 mb-1 mt-3 text-sm">Unexpected Directories:</h4> <p class="text-xs text-red-400 mb-2 font-semibold">(Subfolders found - THESE WILL BE DELETED)</p> <ul class="list-disc list-inside mb-3 text-sm text-gray-400"> {% for item in unexpected_dirs %}<li>{{ item.folder }}/{{ item.name }}/</li>{% endfor %} </ul> {% endif %}
+            {% set items_to_delete_count = (orphaned_uuid_files|length) + (unexpected_files|length) + (unexpected_dirs|length) %}
+            {% if items_to_delete_count > 0 %} <button type="submit" class="btn btn-danger btn-sm mt-2">Delete {{ items_to_delete_count }} Unexpected Item(s)</button> {% endif %}
+        </form>
+    </div>
+    {% endif %}
+
+    {# --- Upload and Management Section --- #}
+    <div class="config-section">
+        {# Use updated route name #}
+        <form id="upload-media-form" action="{{ url_for('config_bp.upload_media') }}" method="POST" enctype="multipart/form-data" class="mb-6 border-b border-gray-700 pb-6">
+            <h3 class="text-lg font-medium text-gray-300 mb-3">Upload New Media</h3>
+            <div class="form-group">
+                <label for="media_files">Select image or video files:</label> {# Updated label #}
+                {# Use updated input name and accept list #}
+                <input type="file" id="media_files" name="media_files" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.ogg" required>
+                <p class="mt-1 text-xs text-gray-500">Max total upload size: {{ config.MAX_CONTENT_LENGTH // 1024 // 1024 }} MB. Allowed types: PNG, JPG, JPEG, GIF, WEBP, MP4, WEBM, OGG.</p> {# Updated allowed types text #}
+            </div>
+            <div class="flex items-center space-x-3">
+                 <button type="submit" id="upload-button" class="btn btn-primary">Upload Media</button> {# Updated button text #}
+                 <div id="upload-spinner" class="hidden w-5 h-5 border-t-2 border-b-2 border-indigo-200 rounded-full animate-spin"></div>
+            </div>
+        </form>
+
+        {# Use updated route name #}
+        <form id="delete-media-form" action="{{ url_for('config_bp.delete_media') }}" method="POST">
+            <div class="flex justify-between items-center mb-3">
+                 <h3 class="text-lg font-medium text-gray-300">Manage Uploaded Media</h3>
+                 {# Use updated input name for JS #}
+                 <button type="submit" id="delete-button" class="btn btn-danger btn-sm" disabled>Delete Selected (<span id="selected-count">0</span>)</button>
+            </div>
+             <p class="text-sm text-gray-400 mb-4">Select media to delete. Click an item to select/deselect.</p>
+            {# Use updated variable name #}
+            {% if media_items %}
+            {# Use updated ID for JS #}
+            <div id="media-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 mb-4">
+                {% for media in media_items %}
+                {# Add data attribute for type #}
+                <div class="thumbnail-item relative" data-media-type="{{ media.media_type }}"> {# Added relative for potential icon overlay #}
+                    {# Use updated input name #}
+                    <input type="checkbox" name="selected_media" value="{{ media.id }}" id="media-{{ media.id }}" class="media-checkbox sr-only">
+                    <label for="media-{{ media.id }}" class="block cursor-pointer">
+                        {# Display thumbnail for images, placeholder/icon for videos #}
+                        {% if media.media_type == 'image' %}
+                        <img src="{{ url_for('main_bp.serve_thumbnail', filename=media.get_thumbnail_filename()) }}"
+                             alt="{{ media.display_name }}"
+                             loading="lazy"
+                             class="w-full h-[100px] object-cover block"
+                             {# Use generic placeholder #}
+                             onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/placeholder_thumb.png') }}'; this.classList.add('border', 'border-red-500');">
+                        {% else %} {# Video Placeholder #}
+                        <div class="w-full h-[100px] bg-gray-700 flex items-center justify-center relative">
+                             {# Simple Video Icon using SVG #}
+                             <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                             {# Optional: Add thumbnail path check for future video thumbs #}
+                             {# {% if not media.get_thumbnail_path() | file_exists %} ... {% endif %} #}
+                        </div>
+                        {% endif %}
+                        {# Filename overlay #}
+                        <div class="filename" title="{{ media.display_name }} ({{ media.original_filename }})">
+                             {# Add small icon indicator for type #}
+                             {% if media.media_type == 'video' %}
+                                 <svg class="inline-block w-3 h-3 mr-1 text-gray-300" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8H5v-2h10v2z" clip-rule="evenodd"></path></svg>
+                             {% endif %}
+                            {{ media.display_name }}
+                         </div>
+                    </label>
+                    {# The ::after pseudo-element will be styled by CSS based on parent class #}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500">No valid media uploaded yet.</p>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{# Add JS specific to this page #}
+{% block page_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // *** Use updated IDs and class names ***
+        const grid = document.getElementById('media-grid');
+        const deleteButton = document.getElementById('delete-button');
+        const selectedCountSpan = document.getElementById('selected-count');
+        const deleteForm = document.getElementById('delete-media-form');
+        const uploadForm = document.getElementById('upload-media-form');
+        const uploadButton = document.getElementById('upload-button');
+        const uploadSpinner = document.getElementById('upload-spinner');
+
+        // --- Media Deletion Logic ---
+        if (grid && deleteButton && selectedCountSpan && deleteForm) {
+            function updateDeleteButtonState() {
+                // *** Use updated class name ***
+                const checkedCheckboxes = grid.querySelectorAll('.media-checkbox:checked');
+                const count = checkedCheckboxes.length;
+                selectedCountSpan.textContent = count;
+                deleteButton.disabled = count === 0;
+
+                // Toggle 'is-selected' class on parent div
+                grid.querySelectorAll('.thumbnail-item').forEach(item => {
+                    // *** Use updated class name ***
+                    const checkbox = item.querySelector('.media-checkbox');
+                    if (checkbox) {
+                        item.classList.toggle('is-selected', checkbox.checked);
+                    }
+                });
+            }
+
+            // Click Listener on grid items
+            grid.addEventListener('click', function(event) {
+                 const thumbItem = event.target.closest('.thumbnail-item');
+                 if (thumbItem) {
+                     // *** Use updated class name ***
+                     const checkbox = thumbItem.querySelector('.media-checkbox');
+                     if (checkbox) {
+                         checkbox.checked = !checkbox.checked;
+                         // Manually trigger change event for consistency
+                         checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                     }
+                 }
+            });
+
+            // Change Listener (delegated from grid)
+             grid.addEventListener('change', function(event) {
+                 // *** Use updated class name ***
+                 if (event.target.classList.contains('media-checkbox')) {
+                     updateDeleteButtonState();
+                 }
+             });
+
+            // Delete Form Submission Confirmation
+            deleteForm.addEventListener('submit', function(event) {
+                const selectedCount = parseInt(selectedCountSpan.textContent, 10);
+                if (selectedCount > 0) {
+                    // *** Updated confirmation message ***
+                    if (!confirm(`Are you sure you want to delete ${selectedCount} selected media file(s)? This cannot be undone.`)) {
+                        event.preventDefault();
+                    }
+                } else {
+                     event.preventDefault(); // Should be disabled anyway, but good practice
+                }
+            });
+
+            updateDeleteButtonState(); // Initial check on page load
+        }
+
+        // --- Upload Loading Indicator ---
+        if (uploadForm && uploadButton && uploadSpinner) {
+            uploadForm.addEventListener('submit', function() {
+                // Basic check if files are selected
+                const fileInput = document.getElementById('media_files');
+                if (fileInput && fileInput.files.length > 0) {
+                    uploadSpinner.classList.remove('hidden');
+                    uploadButton.disabled = true;
+                    uploadButton.textContent = 'Uploading...';
+                } else {
+                    // Prevent form submission if no files selected (browser might do this anyway)
+                    event.preventDefault();
+                    flash('Please select files to upload.', 'warning'); // Consider adding a flash message display area or using alerts (though alerts are discouraged)
+                }
+            });
+        }
+
+         // --- Cleanup Form Confirmations ---
+         const cleanupMissingDbForm = document.getElementById('cleanup-missing-db-form');
+         if (cleanupMissingDbForm) {
+             cleanupMissingDbForm.addEventListener('submit', function(event) {
+                 // *** Use updated input name ***
+                 const count = cleanupMissingDbForm.querySelectorAll('input[name="missing_media_ids"]').length;
+                 // *** Updated confirmation message ***
+                 if (!confirm(`Are you sure you want to remove ${count} database entries for media with missing files? This cannot be undone.`)) {
+                     event.preventDefault();
+                 }
+             });
+         }
+
+         const cleanupUnexpectedItemsForm = document.getElementById('cleanup-unexpected-items-form');
+         if (cleanupUnexpectedItemsForm) {
+              // Get counts from Jinja (ensure these are passed correctly if used)
+              const orphanedUuidCount = {{ orphaned_uuid_files|length }};
+              const unexpectedFilesCount = {{ unexpected_files|length }};
+              const unexpectedDirsCount = {{ unexpected_dirs|length }};
+              const totalItemsToDelete = orphanedUuidCount + unexpectedFilesCount + unexpectedDirsCount;
+
+             cleanupUnexpectedItemsForm.addEventListener('submit', function(event) {
+                 if (totalItemsToDelete > 0) {
+                     let confirmMsg = `Are you sure you want to permanently delete ${totalItemsToDelete} unexpected item(s) from the disk?`;
+                     if (unexpectedDirsCount > 0) {
+                         confirmMsg += `\n\nWARNING: This includes ${unexpectedDirsCount} director(y/ies) and ALL their contents!`;
+                     }
+                     confirmMsg += `\n\nThis cannot be undone.`;
+                     if (!confirm(confirmMsg)) {
+                         event.preventDefault();
+                     }
+                 } else {
+                     event.preventDefault(); // No items to delete
+                 }
+             });
+         }
+    });
+</script>
+{% endblock %}

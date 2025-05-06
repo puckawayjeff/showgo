@@ -5,7 +5,7 @@ import traceback # Keep traceback for potential error logging here too
 from flask import Flask
 from .config import Config, DEFAULT_SETTINGS_DB # Import configuration and defaults
 from .extensions import db, auth # Import initialized extensions
-from .models import Setting, ImageFile # Import models to ensure they are known to SQLAlchemy
+from .models import Setting, MediaFile # Import models to ensure they are known to SQLAlchemy
 
 # Import Blueprints
 from .main_bp import main_bp

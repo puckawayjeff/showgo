@@ -9,13 +9,32 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Styles from 'known good' version, adapted slightly */
+        /* Base styles */
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #000; color: #fff; font-family: Inter, sans-serif; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
         body.fullscreen-active { cursor: none; }
-        #slideshow-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
-        #slideshow-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; background-color: #000; transform-origin: center center; }
-        #slideshow-image.active { opacity: 1; }
-        #slideshow-image.kenburns-active { transition: opacity 1s ease-in-out, transform var(--kb-duration) linear; }
+        #slideshow-container { position: relative; width: 100%; height: 100%; overflow: hidden; background-color: #000; } /* Ensure background is black */
+
+        /* Common styles for media elements */
+        #slideshow-image, #slideshow-video {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; /* Start hidden */
+            transition: opacity 1s ease-in-out; /* Fade transition */
+            background-color: transparent; /* Allow container background to show */
+            transform-origin: center center;
+            display: none; /* Use JS to control display block/none */
+        }
+        /* Active state (controlled by JS) */
+        #slideshow-image.active, #slideshow-video.active {
+            opacity: 1;
+            display: block;
+        }
+        /* Ken Burns specific to image */
+        #slideshow-image.kenburns-active {
+            transition: opacity 1s ease-in-out, transform var(--kb-duration) linear;
+        }
+
+        /* Widget container and individual widgets */
         #widget-container { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: flex-end; z-index: 10; pointer-events: none; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
         .widget { background-color: rgba(0, 0, 0, 0.6); padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 1.1rem; margin: 0 10px; }
         #time-widget {}
@@ -23,18 +42,15 @@
         #weather-widget img { display: inline-block; height: 1.5em; width: 1.5em; vertical-align: middle; margin-left: 0.25rem; }
         #watermark { position: absolute; z-index: 20; background-color: rgba(0, 0, 0, 0.6); padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.9rem; pointer-events: auto; }
         #status-message-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ccc; text-align: center; z-index: 5; font-size: 1.25rem; }
+
+        /* RSS Ticker */
         #rss-ticker-container { position: absolute; bottom: 80px; left: 0; width: 100%; background-color: rgba(0, 0, 0, 0.6); padding: 0.5rem 0; overflow: hidden; white-space: nowrap; z-index: 11; box-sizing: border-box; pointer-events: none; }
-        #rss-ticker-content {
-            display: inline-block;
-            padding-left: 100%;
-            /* Animation duration set by JS using CSS variable */
-            animation: ticker-scroll var(--rss-scroll-duration, 80s) linear infinite;
-            font-size: 1rem;
-            color: #e5e7eb;
-        }
+        #rss-ticker-content { display: inline-block; padding-left: 100%; animation: ticker-scroll var(--rss-scroll-duration, 80s) linear infinite; font-size: 1rem; color: #e5e7eb; }
         #rss-ticker-content span.rss-item { margin: 0 1.5rem; }
         #rss-ticker-content span.rss-separator { color: #6b7280; margin: 0 0.5rem; }
         @keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+        /* Watermark Positions */
         .top-left { top: 10px; left: 10px; } .top-right { top: 10px; right: 10px; } .bottom-left { bottom: 10px; left: 10px; } .bottom-right { bottom: 10px; right: 10px; }
     </style>
 </head>
@@ -42,13 +58,21 @@
 
     <div id="slideshow-container" class="relative w-full h-screen overflow-hidden">
         <div id="status-message-display">
-            {% if not images %}
-                <p>No valid images found for slideshow.</p>
+            {# Updated variable name #}
+            {% if not media_items %}
+                <p>No valid media found for slideshow.</p>
             {% endif %}
         </div>
-        <img id="slideshow-image" src="" alt="Slideshow Image" class="absolute top-0 left-0 w-full h-full {{ 'object-contain' if config.slideshow.image_scaling == 'contain' else 'object-cover' }}">
+        {# Image Element #}
+        <img id="slideshow-image" src="" alt="Slideshow Image" class="absolute top-0 left-0 w-full h-full">
+
+        {# Video Element (NEW) #}
+        <video id="slideshow-video" src="" class="absolute top-0 left-0 w-full h-full">
+            Your browser does not support the video tag.
+        </video>
     </div>
 
+    {# --- Widgets (No changes needed) --- #}
     {% if config.watermark.enabled and config.watermark.text %}
     <div id="watermark" class="widget {{ config.watermark.position | default('bottom-right') }}">
         {{ config.watermark.text }}
@@ -60,9 +84,7 @@
         <div id="time-widget" class="widget">
              <span id="time-display">--:--:-- --</span>
         </div>
-        {% else %}
-         <div></div>
-        {% endif %}
+        {% else %} <div></div> {% endif %}
 
         {% if config.widgets.weather.enabled and weather %}
             <div id="weather-widget" class="widget">
@@ -73,9 +95,7 @@
                 <img src="https://openweathermap.org/img/wn/{{ weather.weather[0].icon }}.png" alt="">
                 {% endif %}
             </div>
-        {% elif not config.widgets.time.enabled %}
-             <div></div>
-        {% endif %}
+        {% elif not config.widgets.time.enabled %} <div></div> {% endif %}
     </div>
 
     {% if config.widgets.rss.enabled and rss_headlines %}
@@ -90,69 +110,46 @@
         </div>
     </div>
     {% endif %}
+    {# --- End Widgets --- #}
 
     <script>
-        let slideshowData = null; // Initialize as null
-
+        // --- Initialize Slideshow Data ---
+        let slideshowData = null;
         try {
-            // Directly assign the data
+            // Pass data directly from Flask template
             slideshowData = {
-                images: {{ images | tojson | safe }},
-                config: {{ config | tojson | safe }},
+                // *** Use media_items list (contains dicts with 'filename' and 'type') ***
+                mediaItems: {{ media_items | tojson | safe }},
+                config: {{ config | tojson | safe }}, // Contains all nested settings
                 initialTimestamp: {% if initial_config_timestamp is not none %}{{ initial_config_timestamp }}{% else %}null{% endif %},
-                imageBaseUrl: "{{ url_for('main_bp.serve_uploaded_image', filename='') }}",
+                // *** Rename to mediaBaseUrl ***
+                mediaBaseUrl: "{{ url_for('main_bp.serve_uploaded_media', filename='') }}",
                 weatherError: {{ weather_error | tojson | safe }},
                 rssError: {{ rss_error | tojson | safe }}
-                // Note: config object above now contains widgets.rss.scroll_speed
             };
 
             if (slideshowData.weatherError) { console.error("Weather Widget Error:", slideshowData.weatherError); }
             if (slideshowData.rssError) { console.error("RSS Widget Error:", slideshowData.rssError); }
 
-            // --- Data Restructuring/Defaults ---
+            // --- Data Restructuring/Defaults (Simplified as config is now passed fully structured) ---
+            // Access nested config directly, e.g., slideshowData.config.slideshow.duration_seconds
+            // Ensure nested objects exist for safety before accessing properties in JS if needed
             slideshowData.config = slideshowData.config || {};
             slideshowData.config.slideshow = slideshowData.config.slideshow || {};
             slideshowData.config.watermark = slideshowData.config.watermark || {};
             slideshowData.config.widgets = slideshowData.config.widgets || {};
             slideshowData.config.widgets.time = slideshowData.config.widgets.time || {};
-            slideshowData.config.widgets.rss = slideshowData.config.widgets.rss || {}; // Ensure rss object exists
+            slideshowData.config.widgets.weather = slideshowData.config.widgets.weather || {};
+            slideshowData.config.widgets.rss = slideshowData.config.widgets.rss || {};
             slideshowData.config.burn_in_prevention = slideshowData.config.burn_in_prevention || {};
-
-            slideshowData = {
-                images: slideshowData.images || [],
-                duration: (slideshowData.config.slideshow.duration_seconds || 10) * 1000,
-                transitionEffect: slideshowData.config.slideshow.transition_effect || 'fade',
-                imageOrder: slideshowData.config.slideshow.image_order || 'sequential',
-                imageBaseUrl: slideshowData.imageBaseUrl || '',
-                imageScaling: slideshowData.config.slideshow.image_scaling || 'cover',
-                widgets: {
-                    time: slideshowData.config.widgets.time.enabled ?? true,
-                    watermark: {
-                        enabled: slideshowData.config.watermark.enabled ?? false,
-                        text: slideshowData.config.watermark.text || '',
-                        position: slideshowData.config.watermark.position || 'bottom-right'
-                    },
-                    rss: {
-                         enabled: slideshowData.config.widgets.rss.enabled ?? false,
-                         // *** ADDED scroll_speed with default ***
-                         scroll_speed: slideshowData.config.widgets.rss.scroll_speed || 'medium'
-                    }
-                },
-                burnInPrevention: {
-                     enabled: slideshowData.config.burn_in_prevention.enabled ?? false,
-                     elements: slideshowData.config.burn_in_prevention.elements || ['watermark'],
-                     interval_seconds: slideshowData.config.burn_in_prevention.interval_seconds || 15,
-                     strength_pixels: slideshowData.config.burn_in_prevention.strength_pixels || 3
-                },
-                initialTimestamp: slideshowData.initialTimestamp ?? 0
-            };
 
             console.log("Slideshow Data Constructed Successfully:", slideshowData);
 
-             if (!slideshowData.images || slideshowData.images.length === 0) {
+            // Check if media list is empty and update status message
+             if (!slideshowData.mediaItems || slideshowData.mediaItems.length === 0) {
                  const statusDisplay = document.getElementById('status-message-display');
                  if (statusDisplay && !statusDisplay.querySelector('p')) {
-                      statusDisplay.innerHTML = '<p>No valid images found for slideshow.</p>';
+                      statusDisplay.innerHTML = '<p>No valid media found for slideshow.</p>';
                  }
              }
 
@@ -162,11 +159,11 @@
             if (statusDisplay) {
                 statusDisplay.innerHTML = '<p style="color: red;">Error loading slideshow data. Please check console.</p>';
             }
-            slideshowData = null;
+            slideshowData = null; // Ensure it's null on error
         }
     </script>
 
-    {# Ensure slideshow.js is loaded AFTER slideshowData is defined #}
+    {# Load slideshow.js AFTER slideshowData is defined #}
     <script src="{{ url_for('static', filename='js/slideshow.js') }}"></script>
 
 </body>

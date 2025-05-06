@@ -7,27 +7,23 @@
 <div class="max-w-4xl mx-auto"> {# Constrain width for readability #}
     {# Use blueprint name in url_for #}
     <form action="{{ url_for('config_bp.config_general') }}" method="POST">
+
         {# Slideshow Settings Section #}
         <div class="config-section">
             <h2>Slideshow Settings</h2>
-            <div class="grid-cols-form">
+            {# Image Settings #}
+            <h3 class="text-base font-medium text-gray-400 mb-3 mt-2 border-b border-gray-700 pb-1">Image Display</h3>
+            <div class="grid-cols-form mb-4">
                 <div class="form-group">
                     <label for="duration_seconds">Image Duration (seconds)</label>
                     <input type="number" id="duration_seconds" name="duration_seconds" min="1" value="{{ config.slideshow.duration_seconds }}" required class="form-input">
                 </div>
                 <div class="form-group">
-                    <label for="transition_effect">Transition Effect</label>
+                    <label for="transition_effect">Image Transition Effect</label>
                     <select id="transition_effect" name="transition_effect" class="form-select">
                         <option value="fade" {% if config.slideshow.transition_effect == 'fade' %}selected{% endif %}>Fade</option>
                         <option value="slide" {% if config.slideshow.transition_effect == 'slide' %}selected{% endif %}>Slide (Basic)</option>
                         <option value="kenburns" {% if config.slideshow.transition_effect == 'kenburns' %}selected{% endif %}>Ken Burns (Zoom/Pan)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="image_order">Image Order</label>
-                    <select id="image_order" name="image_order" class="form-select">
-                        <option value="sequential" {% if config.slideshow.image_order == 'sequential' %}selected{% endif %}>Sequential (Upload Order)</option>
-                        <option value="random" {% if config.slideshow.image_order == 'random' %}selected{% endif %}>Random</option>
                     </select>
                 </div>
                  <div class="form-group">
@@ -37,10 +33,56 @@
                         <option value="contain" {% if config.slideshow.image_scaling == 'contain' %}selected{% endif %}>Contain (Fit Screen)</option>
                     </select>
                 </div>
+                {# Placeholder for spacing if needed #}
+                <div></div>
             </div>
+
+            {# Video Settings (NEW SECTION) #}
+            <h3 class="text-base font-medium text-gray-400 mb-3 mt-4 border-b border-gray-700 pb-1">Video Playback</h3>
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="form-group">
+                    <label for="video_scaling">Video Scaling</label>
+                    <select id="video_scaling" name="video_scaling" class="form-select">
+                        <option value="contain" {% if config.slideshow.video_scaling == 'contain' %}selected{% endif %}>Contain (Fit Screen, Default)</option>
+                        <option value="cover" {% if config.slideshow.video_scaling == 'cover' %}selected{% endif %}>Cover (Fill Screen)</option>
+                    </select>
+                </div>
+                {# Checkboxes for boolean options #}
+                <div class="form-group md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                     <label class="inline-flex items-center">
+                        <input type="checkbox" id="video_autoplay" name="video_autoplay" class="form-checkbox" {% if config.slideshow.video_autoplay %}checked{% endif %}>
+                        <span class="checkbox-label">Autoplay</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="video_loop" name="video_loop" class="form-checkbox" {% if config.slideshow.video_loop %}checked{% endif %}>
+                        <span class="checkbox-label">Loop</span>
+                    </label>
+                     <label class="inline-flex items-center">
+                        <input type="checkbox" id="video_muted" name="video_muted" class="form-checkbox" {% if config.slideshow.video_muted %}checked{% endif %}>
+                        <span class="checkbox-label">Start Muted</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="video_show_controls" name="video_show_controls" class="form-checkbox" {% if config.slideshow.video_show_controls %}checked{% endif %}>
+                        <span class="checkbox-label">Show Controls</span>
+                    </label>
+                </div>
+            </div>
+
+             {# General Order Setting #}
+             <h3 class="text-base font-medium text-gray-400 mb-3 mt-4 border-b border-gray-700 pb-1">General Order</h3>
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div class="form-group">
+                    <label for="image_order">Media Display Order</label> {# Changed label slightly #}
+                    <select id="image_order" name="image_order" class="form-select">
+                        <option value="sequential" {% if config.slideshow.image_order == 'sequential' %}selected{% endif %}>Sequential (Upload Order)</option>
+                        <option value="random" {% if config.slideshow.image_order == 'random' %}selected{% endif %}>Random</option>
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Applies to both images and videos.</p>
+                </div>
+             </div>
         </div>
 
-        {# Widgets Section #}
+        {# Widgets Section (No changes needed here) #}
         <div class="config-section">
             <h2>Widgets</h2>
              <div class="grid grid-cols-1 gap-y-6"> {# Single column layout for widgets #}
@@ -90,7 +132,7 @@
             </div>
         </div>
 
-        {# Display Options Section #}
+        {# Display Options Section (No changes needed here) #}
         <div class="config-section">
             <h2>Display Options</h2>
              <div class="grid grid-cols-1 gap-y-6"> {# Single column layout #}

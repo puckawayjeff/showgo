@@ -1,19 +1,20 @@
 # ShowGo - Web-Based Slideshow Kiosk
 
-ShowGo is a self-hosted, web-based photo slideshow application designed for digital signage or personal use. It allows users to upload images and configure various display options through a web interface.
+ShowGo is a self-hosted, web-based photo and video slideshow application designed for digital signage or personal use. It allows users to upload media and configure various display options through a web interface.
 
 **License:** Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0) - See LICENSE.md.
 
 ## Features
 
 * **Web-Based Configuration:** Manage all settings through a password-protected web UI (`/config`).
-* **Image Upload & Management:** Upload multiple images (JPG, PNG, GIF, WEBP). View thumbnails and delete images.
+* **Media Upload & Management:** Upload multiple images (JPG, PNG, GIF, WEBP) and videos (MP4, WEBM, OGG). View thumbnails and delete media.
 * **Slideshow Display:** View the configured slideshow at the root URL (`/`).
 * **Customizable Display:**
     * Set image display duration.
-    * Choose image order (sequential or random).
-    * Select image scaling (`cover` or `contain`).
-    * Select transition effects (`fade`, `slide`, `kenburns`).
+    * Choose image transition effects (`fade`, `slide`, `kenburns`).
+    * Configure video playback (scaling, autoplay, loop, mute, controls).
+    * Choose media order (sequential or random).
+    * Select image/video scaling (`cover` or `contain`).
     * Optional watermark with configurable text and position.
 * **Widgets:**
     * Digital Clock
@@ -24,25 +25,29 @@ ShowGo is a self-hosted, web-based photo slideshow application designed for digi
 * **Error Handling:**
     * Custom pages for 404 (Not Found) and 500 (Server Error).
     * Silent failure for Weather/RSS widgets (errors logged to console).
-* **Filesystem Validation:** Detects and allows cleanup of missing image files or orphaned files/thumbnails via the config UI.
-* **Database Self-Healing:** Attempts to recreate missing tables (`settings`, `images`) on startup or during operation.
-* **Environment Variable Configuration:** Key settings (database credentials, secret key, API keys) are managed via a `.env` file.
+* **Filesystem Validation:** Detects and allows cleanup of missing media files or orphaned files/thumbnails via the config UI.
+* **Database Self-Healing:** Attempts to recreate missing tables (`settings`, `media_files`) on startup or during operation.
+* **Environment Variable Configuration:** Key settings (secret key, API keys) are managed via a `.env` file.
 * **Application Factory Pattern:** Uses a structured approach for application creation and configuration.
 * **Blueprints:** Code organized into logical components (main display, configuration).
+* **SQLite Database:** Uses a simple, file-based SQLite database for easy setup and deployment.
 
 ## Project Structure
-```bash 
+
+```bash
 your_project_root/
 ├── run.py             # Main script to run the Flask development server
-├── .env               # Environment variables (DB creds, API keys, SECRET_KEY) - CREATE THIS
+├── .env               # Environment variables (SECRET_KEY, API keys) - CREATE THIS
 ├── requirements.txt   # Python dependencies
-├── uploads/           # Image uploads (created automatically)
-├── thumbnails/        # Image thumbnails (created automatically)
+├── instance/          # Instance folder (created automatically)
+│   └── showgo.db      # SQLite database file (created automatically)
+├── uploads/           # Media uploads (created automatically)
+├── thumbnails/        # Media thumbnails (created automatically)
 └── showgo/            # Main application package
     ├── __init__.py    # App factory (create_app)
     ├── config.py      # Configuration classes & Default Settings
     ├── extensions.py  # Flask extension instances (db, auth)
-    ├── models.py      # SQLAlchemy models (Setting, ImageFile)
+    ├── models.py      # SQLAlchemy models (Setting, MediaFile)
     ├── utils.py       # Helper functions (DB init, validation, etc.)
     ├── cli.py         # CLI commands (init-db)
     ├── main_bp.py     # Blueprint for main routes (/, /uploads, /api)
@@ -58,7 +63,7 @@ your_project_root/
     └── templates/     # HTML Templates
         ├── config_base.html
         ├── config_general.html
-        ├── config_images.html
+        ├── config_media.html
         ├── config_initial_password.html
         ├── slideshow.html
         ├── logout.html
@@ -85,32 +90,24 @@ your_project_root/
     ```bash
     pip install -r requirements.txt
     ```
-    *(Note: Ensure `requirements.txt` is up-to-date with libraries like Flask, Flask-SQLAlchemy, mysql-connector-python, Pillow, requests, feedparser, Flask-HTTPAuth, Werkzeug, python-dotenv).*
-4.  **Database Setup:**
-    * Ensure you have a MySQL server running.
-    * Create a database (e.g., `showgo_db`) and a user with privileges on that database.
-5.  **Configure Environment Variables:**
+    *(Note: Ensure `requirements.txt` is up-to-date.  `mysql-connector-python` is no longer needed).*
+4.  **Configure Environment Variables:**
     * Create a file named `.env` in the project root directory (where `run.py` is).
     * Add the following variables, replacing the placeholder values:
         ```dotenv
         # Flask Secret Key (generate a strong random key)
         SECRET_KEY='your_strong_random_secret_key'
 
-        # Database Credentials
-        MYSQL_USER='your_db_user'
-        MYSQL_PASSWORD='your_db_password'
-        MYSQL_HOST='your_db_host' # e.g., localhost or IP address
-        MYSQL_DB='your_db_name'   # e.g., showgo_db
-
         # OpenWeatherMap API Key (Optional, for weather widget)
-        # Get a free key from [https://openweathermap.org/](https://openweathermap.org/)
+        # Get a free key from https://openweathermap.org/
         OPENWEATHERMAP_API_KEY='your_openweathermap_api_key'
         ```
-6.  **Initialize Database Tables:**
-    * Run the Flask CLI command to create the necessary tables and populate default settings:
+5.  **Initialize Database (Optional but Recommended):**
+    * While the application attempts to create the database and tables automatically on first run, you can initialize it manually using the Flask CLI:
         ```bash
         flask db init
         ```
+    * This will create the `instance/showgo.db` file and the necessary tables if they don't exist.
 
 ## Running the Application
 
@@ -124,22 +121,19 @@ your_project_root/
         ```bash
         flask --app run run
         ```
-    * The app should be accessible at `http://127.0.0.1:5000` (or `http://0.0.0.0:5000` depending on your setup).
+    * The app should be accessible at `http://localhost:5000` (or `http://127.0.0.1:5000` depending on your setup).
+    * The SQLite database file (`instance/showgo.db`) will be created automatically in the `instance` folder within your project root if it doesn't exist.
 
 ## Usage
 
-1.  **View Slideshow:** Access the root URL (e.g., `http://127.0.0.1:5000/`). Initially, it might show "No images uploaded."
-2.  **Access Configuration:** Navigate to `/config` (e.g., `http://127.0.0.1:5000/config`).
+1.  **View Slideshow:** Access the root URL (e.g., `http://localhost:5000/`).
+2.  **Access Configuration:** Navigate to `/config` (e.g., `http://localhost:5000/config`).
 3.  **Login:** Use the default credentials:
     * Username: `admin`
     * Password: `showgo`
 4.  **Set Initial Password:** You will be prompted to change the default password immediately upon first login.
-5.  **Configure:** Use the sidebar to navigate between "General Settings" and "Image Management". Upload images and adjust settings as desired.
+5.  **Configure:** Use the sidebar to navigate between "General Settings" and "Media Management". Upload images/video and adjust settings as desired.
 6.  **Logout:** Use the "Logout" link in the sidebar.
-
-## Contributing
-
-(Optional: Add contribution guidelines if applicable)
 
 ## License
 
