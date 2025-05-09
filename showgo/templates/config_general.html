@@ -5,126 +5,214 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto"> {# Constrain width for readability #}
-    {# Use blueprint name in url_for #}
-    <form action="{{ url_for('config_bp.config_general') }}" method="POST">
+    {# Main form for general settings #}
+    <form action="{{ url_for('config_bp.config_general') }}" method="POST" id="general-settings-form">
 
         {# Slideshow Settings Section #}
         <div class="config-section">
             <h2>Slideshow Settings</h2>
-            {# Image Settings #}
             <h3 class="text-base font-medium text-gray-400 mb-3 mt-2 border-b border-gray-700 pb-1">Image Display</h3>
             <div class="grid-cols-form mb-4">
                 <div class="form-group">
                     <label for="duration_seconds">Image Duration (seconds)</label>
-                    <input type="number" id="duration_seconds" name="duration_seconds" min="1" value="{{ config.slideshow.duration_seconds }}" required class="form-input">
+                    {# *** CORRECTED: Use 'settings' dictionary *** #}
+                    <input type="number" id="duration_seconds" name="duration_seconds" min="1" value="{{ settings.slideshow.duration_seconds }}" required class="form-input">
                 </div>
                 <div class="form-group">
                     <label for="transition_effect">Image Transition Effect</label>
                     <select id="transition_effect" name="transition_effect" class="form-select">
-                        <option value="fade" {% if config.slideshow.transition_effect == 'fade' %}selected{% endif %}>Fade</option>
-                        <option value="slide" {% if config.slideshow.transition_effect == 'slide' %}selected{% endif %}>Slide (Basic)</option>
-                        <option value="kenburns" {% if config.slideshow.transition_effect == 'kenburns' %}selected{% endif %}>Ken Burns (Zoom/Pan)</option>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <option value="fade" {% if settings.slideshow.transition_effect == 'fade' %}selected{% endif %}>Fade</option>
+                        <option value="slide" {% if settings.slideshow.transition_effect == 'slide' %}selected{% endif %}>Slide (Basic)</option>
+                        <option value="kenburns" {% if settings.slideshow.transition_effect == 'kenburns' %}selected{% endif %}>Ken Burns (Zoom/Pan)</option>
                     </select>
                 </div>
                  <div class="form-group">
                     <label for="image_scaling">Image Scaling</label>
                     <select id="image_scaling" name="image_scaling" class="form-select">
-                        <option value="cover" {% if config.slideshow.image_scaling == 'cover' %}selected{% endif %}>Cover (Fill Screen)</option>
-                        <option value="contain" {% if config.slideshow.image_scaling == 'contain' %}selected{% endif %}>Contain (Fit Screen)</option>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <option value="cover" {% if settings.slideshow.image_scaling == 'cover' %}selected{% endif %}>Cover (Fill Screen)</option>
+                        <option value="contain" {% if settings.slideshow.image_scaling == 'contain' %}selected{% endif %}>Contain (Fit Screen)</option>
                     </select>
                 </div>
-                {# Placeholder for spacing if needed #}
-                <div></div>
+                <div></div> {# Placeholder for grid spacing if needed #}
             </div>
 
-            {# Video Settings (NEW SECTION) #}
             <h3 class="text-base font-medium text-gray-400 mb-3 mt-4 border-b border-gray-700 pb-1">Video Playback</h3>
              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div class="form-group">
                     <label for="video_scaling">Video Scaling</label>
                     <select id="video_scaling" name="video_scaling" class="form-select">
-                        <option value="contain" {% if config.slideshow.video_scaling == 'contain' %}selected{% endif %}>Contain (Fit Screen, Default)</option>
-                        <option value="cover" {% if config.slideshow.video_scaling == 'cover' %}selected{% endif %}>Cover (Fill Screen)</option>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <option value="contain" {% if settings.slideshow.video_scaling == 'contain' %}selected{% endif %}>Contain (Fit Screen, Default)</option>
+                        <option value="cover" {% if settings.slideshow.video_scaling == 'cover' %}selected{% endif %}>Cover (Fill Screen)</option>
                     </select>
                 </div>
-                {# Checkboxes for boolean options #}
                 <div class="form-group md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
                      <label class="inline-flex items-center">
-                        <input type="checkbox" id="video_autoplay" name="video_autoplay" class="form-checkbox" {% if config.slideshow.video_autoplay %}checked{% endif %}>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="video_autoplay" name="video_autoplay" class="form-checkbox" {% if settings.slideshow.video_autoplay %}checked{% endif %}>
                         <span class="checkbox-label">Autoplay</span>
                     </label>
                     <label class="inline-flex items-center">
-                        <input type="checkbox" id="video_loop" name="video_loop" class="form-checkbox" {% if config.slideshow.video_loop %}checked{% endif %}>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="video_loop" name="video_loop" class="form-checkbox" {% if settings.slideshow.video_loop %}checked{% endif %}>
                         <span class="checkbox-label">Loop</span>
                     </label>
                      <label class="inline-flex items-center">
-                        <input type="checkbox" id="video_muted" name="video_muted" class="form-checkbox" {% if config.slideshow.video_muted %}checked{% endif %}>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="video_muted" name="video_muted" class="form-checkbox" {% if settings.slideshow.video_muted %}checked{% endif %}>
                         <span class="checkbox-label">Start Muted</span>
                     </label>
                     <label class="inline-flex items-center">
-                        <input type="checkbox" id="video_show_controls" name="video_show_controls" class="form-checkbox" {% if config.slideshow.video_show_controls %}checked{% endif %}>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="video_show_controls" name="video_show_controls" class="form-checkbox" {% if settings.slideshow.video_show_controls %}checked{% endif %}>
                         <span class="checkbox-label">Show Controls</span>
                     </label>
                 </div>
             </div>
 
-             {# General Order Setting #}
              <h3 class="text-base font-medium text-gray-400 mb-3 mt-4 border-b border-gray-700 pb-1">General Order</h3>
              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div class="form-group">
-                    <label for="image_order">Media Display Order</label> {# Changed label slightly #}
+                    <label for="image_order">Media Display Order</label>
                     <select id="image_order" name="image_order" class="form-select">
-                        <option value="sequential" {% if config.slideshow.image_order == 'sequential' %}selected{% endif %}>Sequential (Upload Order)</option>
-                        <option value="random" {% if config.slideshow.image_order == 'random' %}selected{% endif %}>Random</option>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <option value="sequential" {% if settings.slideshow.image_order == 'sequential' %}selected{% endif %}>Sequential (Upload Order)</option>
+                        <option value="random" {% if settings.slideshow.image_order == 'random' %}selected{% endif %}>Random</option>
                     </select>
                     <p class="mt-1 text-xs text-gray-500">Applies to both images and videos.</p>
                 </div>
              </div>
         </div>
 
-        {# Widgets Section (No changes needed here) #}
+        {# Overlay Branding Section #}
+        <div class="config-section">
+            <h2>Overlay Branding</h2>
+            <div class="form-group border-b border-gray-700 pb-4 mb-4">
+                <label class="inline-flex items-center">
+                   {# *** CORRECTED: Use 'settings' dictionary *** #}
+                   <input type="checkbox" id="overlay_enabled" name="overlay_enabled" class="form-checkbox" {% if settings.overlay.enabled %}checked{% endif %}>
+                   <span class="checkbox-label font-medium">Enable Overlay Branding</span>
+               </label>
+            </div>
+
+            {# *** CORRECTED: Use 'settings' dictionary *** #}
+            <div id="overlay-options" class="{% if not settings.overlay.enabled %}hidden{% endif %}">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-6">
+                    <div class="form-group">
+                        <label for="overlay_text">Overlay Text</label>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="text" id="overlay_text" name="overlay_text" value="{{ settings.overlay.text }}" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="overlay_position">Position</label>
+                        <select id="overlay_position" name="overlay_position" class="form-select">
+                            {# *** CORRECTED: Use 'settings' dictionary *** #}
+                            <option value="top-left" {% if settings.overlay.position == 'top-left' %}selected{% endif %}>Top Left</option>
+                            <option value="top-center" {% if settings.overlay.position == 'top-center' %}selected{% endif %}>Top Center</option>
+                            <option value="top-right" {% if settings.overlay.position == 'top-right' %}selected{% endif %}>Top Right</option>
+                            <option value="middle-left" {% if settings.overlay.position == 'middle-left' %}selected{% endif %}>Middle Left</option>
+                            <option value="center" {% if settings.overlay.position == 'center' %}selected{% endif %}>Center</option>
+                            <option value="middle-right" {% if settings.overlay.position == 'middle-right' %}selected{% endif %}>Middle Right</option>
+                            <option value="bottom-left" {% if settings.overlay.position == 'bottom-left' %}selected{% endif %}>Bottom Left</option>
+                            <option value="bottom-center" {% if settings.overlay.position == 'bottom-center' %}selected{% endif %}>Bottom Center</option>
+                            <option value="bottom-right" {% if settings.overlay.position == 'bottom-right' %}selected{% endif %}>Bottom Right</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="overlay_font_size">Font Size</label>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="text" id="overlay_font_size" name="overlay_font_size" value="{{ settings.overlay.font_size }}" class="form-input" placeholder="e.g., 24px or 1.5em">
+                    </div>
+                    <div class="form-group">
+                        <label for="overlay_font_color">Font Color</label>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="color" id="overlay_font_color" name="overlay_font_color" value="{{ settings.overlay.font_color }}" class="form-input h-10 p-1">
+                    </div>
+                     <div class="form-group">
+                        <label for="overlay_background_color">Background Color (Box)</label>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="text" id="overlay_background_color" name="overlay_background_color" value="{{ settings.overlay.background_color }}" class="form-input" placeholder="e.g., rgba(0,0,0,0.5) or #333">
+                    </div>
+                    <div class="form-group">
+                        <label for="overlay_padding">Padding (Box)</label>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="text" id="overlay_padding" name="overlay_padding" value="{{ settings.overlay.padding }}" class="form-input" placeholder="e.g., 10px or 0.5em 1em">
+                    </div>
+                </div>
+
+                <div class="form-group border-t border-gray-700 pt-4 mt-4">
+                     <label class="inline-flex items-center mb-3">
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="overlay_logo_enabled" name="overlay_logo_enabled" class="form-checkbox" {% if settings.overlay.logo_enabled %}checked{% endif %}>
+                        <span class="checkbox-label font-medium">Display Logo</span>
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label for="overlay_display_mode">Display Mode</label>
+                    <select id="overlay_display_mode" name="overlay_display_mode" class="form-select">
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <option value="text_only" {% if settings.overlay.display_mode == 'text_only' %}selected{% endif %}>Text Only</option>
+                        <option value="logo_only" {% if settings.overlay.display_mode == 'logo_only' %}selected{% endif %}>Logo Only</option>
+                        <option value="logo_and_text_side" {% if settings.overlay.display_mode == 'logo_and_text_side' %}selected{% endif %}>Logo and Text (Side-by-Side)</option>
+                        <option value="logo_and_text_below" {% if settings.overlay.display_mode == 'logo_and_text_below' %}selected{% endif %}>Logo and Text (Logo Above)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+
+        {# Widgets Section #}
         <div class="config-section">
             <h2>Widgets</h2>
-             <div class="grid grid-cols-1 gap-y-6"> {# Single column layout for widgets #}
+             <div class="grid grid-cols-1 gap-y-6">
                 <div class="form-group border-b border-gray-700 pb-4">
                      <label class="inline-flex items-center">
-                        <input type="checkbox" id="time_widget_enabled" name="time_widget_enabled" class="form-checkbox" {% if config.widgets.time.enabled %}checked{% endif %}>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="time_widget_enabled" name="time_widget_enabled" class="form-checkbox" {% if settings.widgets.time.enabled %}checked{% endif %}>
                         <span class="checkbox-label font-medium">Enable Time Widget</span>
                     </label>
                 </div>
                 <div class="form-group border-b border-gray-700 pb-4">
                     <label class="inline-flex items-center mb-3">
-                        <input type="checkbox" id="weather_widget_enabled" name="weather_widget_enabled" class="form-checkbox" {% if config.widgets.weather.enabled %}checked{% endif %}>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="weather_widget_enabled" name="weather_widget_enabled" class="form-checkbox" {% if settings.widgets.weather.enabled %}checked{% endif %}>
                         <span class="checkbox-label font-medium">Enable Weather Widget</span>
                     </label>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6"> {# Indent options #}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6">
                         <div class="form-group mb-0">
                             <label for="weather_location">Location (e.g., City, ST or Zip)</label>
-                            <input type="text" id="weather_location" name="weather_location" value="{{ config.widgets.weather.location }}" class="form-input">
+                            {# *** CORRECTED: Use 'settings' dictionary *** #}
+                            <input type="text" id="weather_location" name="weather_location" value="{{ settings.widgets.weather.location }}" class="form-input">
                         </div>
                          <div class="form-group mb-0 md:col-start-2">
-                            <p class="mt-1 text-sm text-gray-400 md:pt-6"> {# Adjust padding #}
+                            <p class="mt-1 text-sm text-gray-400 md:pt-6">
                                 Note: The OpenWeatherMap API key must be set using the <code class="bg-gray-600 px-1 rounded text-xs">OPENWEATHERMAP_API_KEY</code> environment variable. Get a free key from <a href="https://openweathermap.org/" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline">openweathermap.org</a>.
                             </p>
                         </div>
                     </div>
                 </div>
-                <div class="form-group"> {# No border on last item #}
+                <div class="form-group">
                      <label class="inline-flex items-center mb-3">
-                        <input type="checkbox" id="rss_widget_enabled" name="rss_widget_enabled" class="form-checkbox" {% if config.widgets.rss.enabled %}checked{% endif %}>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="rss_widget_enabled" name="rss_widget_enabled" class="form-checkbox" {% if settings.widgets.rss.enabled %}checked{% endif %}>
                         <span class="checkbox-label font-medium">Enable RSS Ticker</span>
                     </label>
-                    <div class="pl-6 space-y-4"> {# Indent options and add spacing #}
+                    <div class="pl-6 space-y-4">
                         <div class="form-group mb-0">
                             <label for="rss_feed_url">RSS Feed URL</label>
-                            <input type="url" id="rss_feed_url" name="rss_feed_url" value="{{ config.widgets.rss.feed_url }}" class="form-input" placeholder="https://example.com/feed.xml">
+                            {# *** CORRECTED: Use 'settings' dictionary *** #}
+                            <input type="url" id="rss_feed_url" name="rss_feed_url" value="{{ settings.widgets.rss.feed_url }}" class="form-input" placeholder="https://example.com/feed.xml">
                         </div>
                         <div class="form-group mb-0">
                             <label for="rss_scroll_speed">Scroll Speed</label>
-                            <select id="rss_scroll_speed" name="rss_scroll_speed" class="form-select md:w-1/2"> {# Limit width #}
-                                <option value="slow" {% if config.widgets.rss.scroll_speed == 'slow' %}selected{% endif %}>Slow</option>
-                                <option value="medium" {% if config.widgets.rss.scroll_speed == 'medium' %}selected{% endif %}>Medium</option>
-                                <option value="fast" {% if config.widgets.rss.scroll_speed == 'fast' %}selected{% endif %}>Fast</option>
+                            <select id="rss_scroll_speed" name="rss_scroll_speed" class="form-select md:w-1/2">
+                                {# *** CORRECTED: Use 'settings' dictionary *** #}
+                                <option value="slow" {% if settings.widgets.rss.scroll_speed == 'slow' %}selected{% endif %}>Slow</option>
+                                <option value="medium" {% if settings.widgets.rss.scroll_speed == 'medium' %}selected{% endif %}>Medium</option>
+                                <option value="fast" {% if settings.widgets.rss.scroll_speed == 'fast' %}selected{% endif %}>Fast</option>
                             </select>
                         </div>
                     </div>
@@ -132,55 +220,37 @@
             </div>
         </div>
 
-        {# Display Options Section (No changes needed here) #}
+        {# Display Options Section - Burn-in Prevention #}
         <div class="config-section">
             <h2>Display Options</h2>
-             <div class="grid grid-cols-1 gap-y-6"> {# Single column layout #}
-                <div class="form-group border-b border-gray-700 pb-4">
-                     <label class="inline-flex items-center mb-3">
-                        <input type="checkbox" id="watermark_enabled" name="watermark_enabled" class="form-checkbox" {% if config.watermark.enabled %}checked{% endif %}>
-                        <span class="checkbox-label font-medium">Enable Watermark</span>
-                    </label>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6"> {# Indent options #}
-                         <div class="form-group mb-0">
-                            <label for="watermark_text">Watermark Text</label>
-                            <input type="text" id="watermark_text" name="watermark_text" value="{{ config.watermark.text }}" class="form-input">
-                        </div>
-                        <div class="form-group mb-0">
-                            <label for="watermark_position">Watermark Position</label>
-                            <select id="watermark_position" name="watermark_position" class="form-select">
-                                <option value="top-left" {% if config.watermark.position == 'top-left' %}selected{% endif %}>Top Left</option>
-                                <option value="top-right" {% if config.watermark.position == 'top-right' %}selected{% endif %}>Top Right</option>
-                                <option value="bottom-left" {% if config.watermark.position == 'bottom-left' %}selected{% endif %}>Bottom Left</option>
-                                <option value="bottom-right" {% if config.watermark.position == 'bottom-right' %}selected{% endif %}>Bottom Right</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group"> {# No border on last item #}
+             <div class="grid grid-cols-1 gap-y-6">
+                <div class="form-group">
                     <label class="inline-flex items-center mb-3">
-                        <input type="checkbox" id="burn_in_prevention_enabled" name="burn_in_prevention_enabled" class="form-checkbox" {% if config.burn_in_prevention.enabled %}checked{% endif %}>
+                        {# *** CORRECTED: Use 'settings' dictionary *** #}
+                        <input type="checkbox" id="burn_in_prevention_enabled" name="burn_in_prevention_enabled" class="form-checkbox" {% if settings.burn_in_prevention.enabled %}checked{% endif %}>
                         <span class="checkbox-label font-medium">Enable Burn-in Prevention (Pixel Shift)</span>
                     </label>
-                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6"> {# Indent options #}
+                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
                          <div class="form-group mb-0">
                             <label>Elements to Shift</label>
                             <div class="mt-2 space-y-1">
-                                {% set bip_elements = config.burn_in_prevention.elements or [] %}
-                                <label class="flex items-center"> <input type="checkbox" id="bip_watermark" name="burn_in_elements" value="watermark" class="form-checkbox" {% if 'watermark' in bip_elements %}checked{% endif %}><span class="checkbox-label">Watermark</span> </label>
+                                {# *** CORRECTED: Use 'settings' dictionary *** #}
+                                {% set bip_elements = settings.burn_in_prevention.elements or [] %}
+                                <label class="flex items-center"> <input type="checkbox" id="bip_overlay" name="burn_in_elements" value="overlay" class="form-checkbox" {% if 'overlay' in bip_elements %}checked{% endif %}><span class="checkbox-label">Overlay Branding</span> </label>
                                 <label class="flex items-center"> <input type="checkbox" id="bip_time" name="burn_in_elements" value="time" class="form-checkbox" {% if 'time' in bip_elements %}checked{% endif %}><span class="checkbox-label">Time</span> </label>
-                                 <label class="flex items-center"> <input type="checkbox" id="bip_weather" name="burn_in_elements" value="weather" class="form-checkbox" {% if 'weather' in bip_elements %}checked{% endif %}><span class="checkbox-label">Weather</span> </label>
+                                <label class="flex items-center"> <input type="checkbox" id="bip_weather" name="burn_in_elements" value="weather" class="form-checkbox" {% if 'weather' in bip_elements %}checked{% endif %}><span class="checkbox-label">Weather</span> </label>
                                 <label class="flex items-center"> <input type="checkbox" id="bip_rss" name="burn_in_elements" value="rss" class="form-checkbox" {% if 'rss' in bip_elements %}checked{% endif %}><span class="checkbox-label">RSS Ticker</span> </label>
                             </div>
                         </div>
                         <div class="form-group mb-0">
                             <label for="burn_in_interval_seconds">Shift Interval (seconds)</label>
-                            <input type="number" id="burn_in_interval_seconds" name="burn_in_interval_seconds" min="1" value="{{ config.burn_in_prevention.interval_seconds }}" required class="form-input">
+                            {# *** CORRECTED: Use 'settings' dictionary *** #}
+                            <input type="number" id="burn_in_interval_seconds" name="burn_in_interval_seconds" min="1" value="{{ settings.burn_in_prevention.interval_seconds }}" required class="form-input">
                         </div>
                          <div class="form-group mb-0">
                             <label for="burn_in_strength_pixels">Shift Strength (pixels)</label>
-                            <input type="number" id="burn_in_strength_pixels" name="burn_in_strength_pixels" min="1" max="10" value="{{ config.burn_in_prevention.strength_pixels }}" required class="form-input">
+                            {# *** CORRECTED: Use 'settings' dictionary *** #}
+                            <input type="number" id="burn_in_strength_pixels" name="burn_in_strength_pixels" min="1" max="10" value="{{ settings.burn_in_prevention.strength_pixels }}" required class="form-input">
                         </div>
                     </div>
                 </div>
@@ -191,5 +261,50 @@
             <button type="submit" class="btn btn-primary">Save General Settings</button>
         </div>
     </form>
+
+    {# Separate form for logo upload #}
+    <div class="config-section mt-6">
+        <h3>Upload Overlay Logo</h3>
+        <p class="text-sm text-gray-400 mb-3">Upload a PNG image to be used as the overlay logo. It will replace any existing logo.</p>
+        {% if logo_exists %}
+        <div class="mb-4">
+            <p class="text-sm text-gray-300 mb-1">Current Logo:</p>
+            <img src="{{ url_for('static', filename='assets/' + APP_CONFIG_OVERLAY_LOGO_FILENAME) }}?v={{ range(1, 100000) | random }}" alt="Current Overlay Logo" class="max-h-20 border border-gray-600 rounded bg-gray-700 p-1">
+             <p class="text-xs text-gray-500 mt-1">If the image doesn't update after upload, try a hard refresh (Ctrl+Shift+R).</p>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 mb-3">No logo currently uploaded.</p>
+        {% endif %}
+        <form action="{{ url_for('config_bp.upload_overlay_logo') }}" method="POST" enctype="multipart/form-data" id="logo-upload-form">
+            <div class="form-group">
+                <label for="overlay_logo_file">Select PNG file:</label>
+                <input type="file" id="overlay_logo_file" name="overlay_logo_file" accept=".png" required class="form-input">
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-secondary">Upload Logo</button>
+            </div>
+        </form>
+    </div>
+
 </div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const overlayEnabledCheckbox = document.getElementById('overlay_enabled');
+    const overlayOptionsDiv = document.getElementById('overlay-options');
+
+    function toggleOverlayOptions() {
+        if (overlayEnabledCheckbox && overlayOptionsDiv) {
+            overlayOptionsDiv.classList.toggle('hidden', !overlayEnabledCheckbox.checked);
+        }
+    }
+
+    if (overlayEnabledCheckbox) {
+        overlayEnabledCheckbox.addEventListener('change', toggleOverlayOptions);
+        toggleOverlayOptions(); // Initial state
+    }
+});
+</script>
 {% endblock %}

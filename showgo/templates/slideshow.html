@@ -10,81 +10,214 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         /* Base styles */
-        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #000; color: #fff; font-family: Inter, sans-serif; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
-        body.fullscreen-active { cursor: none; }
-        #slideshow-container { position: relative; width: 100%; height: 100%; overflow: hidden; background-color: #000; } /* Ensure background is black */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000; /* Ensure background is black */
+            color: #fff;
+            font-family: Inter, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        body.fullscreen-active {
+            cursor: none;
+        }
+        #slideshow-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000; /* Fallback background for the container itself */
+        }
 
-        /* Common styles for media elements */
-        #slideshow-image, #slideshow-video {
+        /* Common styles for media elements (image and video) */
+        #slideshow-image,
+        #slideshow-video {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            opacity: 0; /* Start hidden */
-            transition: opacity 1s ease-in-out; /* Fade transition */
-            background-color: transparent; /* Allow container background to show */
-            transform-origin: center center;
-            display: none; /* Use JS to control display block/none */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0; /* Start hidden, fade in with .active class */
+            transition: opacity 1s ease-in-out; /* Fade transition for opacity */
+            background-color: transparent; /* Let container background show if media doesn't cover */
+            transform-origin: center center; /* For Ken Burns or other transforms */
+            display: none; /* Controlled by JS to show one at a time */
         }
-        /* Active state (controlled by JS) */
-        #slideshow-image.active, #slideshow-video.active {
+        /* Active state for the currently displayed media element */
+        #slideshow-image.active,
+        #slideshow-video.active {
             opacity: 1;
-            display: block;
+            display: block; /* Make the active element visible */
         }
-        /* Ken Burns specific to image */
+        /* Ken Burns specific transition (applied only to image element) */
         #slideshow-image.kenburns-active {
-            transition: opacity 1s ease-in-out, transform var(--kb-duration) linear;
+            /* Opacity transition is already defined above */
+            transition-property: opacity, transform; /* Specify both properties for transition */
+            transition-duration: 1s, var(--kb-duration); /* Opacity 1s, Transform uses JS variable */
+            transition-timing-function: ease-in-out, linear; /* Different timing for opacity and transform */
         }
+
+        /* Overlay Branding Styles */
+        #overlay-branding-container {
+            position: absolute;
+            z-index: 15; /* Ensure it's above media but potentially below other specific UI elements if any */
+            pointer-events: none; /* By default, allow clicks/touches to pass through to media */
+            display: flex; /* Will be 'none' if not enabled, JS sets to 'flex' and manages alignment */
+            /* Default alignment, JS will override based on position setting */
+            align-items: center;
+            justify-content: center;
+            /* Transition for pixel shift if enabled */
+            transition: transform 0.5s ease-out;
+            /* Max width/height to prevent overlay from becoming too large, adjust as needed */
+            max-width: 90%;
+            max-height: 90%;
+        }
+        #overlay-branding-content {
+            /* Styling for the inner box (background, padding, text styles) will be set by JS */
+            display: flex; /* For internal alignment of logo and text */
+            align-items: center; /* Default vertical alignment for content within the box */
+            /* text-shadow: 1px 1px 2px rgba(0,0,0,0.7); /* Optional subtle shadow for better readability */
+            box-sizing: border-box; /* Ensure padding and border are included in width/height */
+        }
+        #overlay-branding-content img.logo {
+            /* Default max sizes, can be made configurable or adjusted */
+            max-height: 80px;
+            max-width: 250px;
+            object-fit: contain; /* Ensures logo scales nicely within its bounds */
+            /* Margins will be handled by JS based on display_mode */
+        }
+        #overlay-branding-content span.text {
+            /* Font size, color will be set by JS based on config */
+            /* white-space: nowrap; /* Optional: prevent text from wrapping if desired */
+            /* overflow: hidden; /* Optional: if text might overflow its container */
+            /* text-overflow: ellipsis; /* Optional: show ... if text overflows */
+        }
+        /* End Overlay Branding Styles */
 
         /* Widget container and individual widgets */
-        #widget-container { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: flex-end; z-index: 10; pointer-events: none; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
-        .widget { background-color: rgba(0, 0, 0, 0.6); padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 1.1rem; margin: 0 10px; }
-        #time-widget {}
-        #weather-widget { text-align: right; }
-        #weather-widget img { display: inline-block; height: 1.5em; width: 1.5em; vertical-align: middle; margin-left: 0.25rem; }
-        #watermark { position: absolute; z-index: 20; background-color: rgba(0, 0, 0, 0.6); padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-size: 0.9rem; pointer-events: auto; }
-        #status-message-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ccc; text-align: center; z-index: 5; font-size: 1.25rem; }
+        #widget-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            z-index: 10; /* Below overlay, above media */
+            pointer-events: none; /* Widgets are display-only */
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+        }
+        .widget {
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 1.1rem;
+            margin: 0 10px; /* Spacing between widgets if they are on the same side */
+            transition: transform 0.5s ease-out; /* For pixel shift */
+        }
+        #time-widget {
+            /* Specific styles if needed */
+        }
+        #weather-widget {
+            text-align: right; /* Align weather info to the right if it's on the right side */
+        }
+        #weather-widget img { /* OpenWeatherMap icon */
+            display: inline-block;
+            height: 1.5em;
+            width: 1.5em;
+            vertical-align: middle;
+            margin-left: 0.25rem;
+        }
+        /* #watermark ID is no longer used, replaced by #overlay-branding-container */
+
+        /* Status message display (e.g., "No media found") */
+        #status-message-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ccc;
+            text-align: center;
+            z-index: 5; /* Above background, below media */
+            font-size: 1.25rem;
+        }
 
         /* RSS Ticker */
-        #rss-ticker-container { position: absolute; bottom: 80px; left: 0; width: 100%; background-color: rgba(0, 0, 0, 0.6); padding: 0.5rem 0; overflow: hidden; white-space: nowrap; z-index: 11; box-sizing: border-box; pointer-events: none; }
-        #rss-ticker-content { display: inline-block; padding-left: 100%; animation: ticker-scroll var(--rss-scroll-duration, 80s) linear infinite; font-size: 1rem; color: #e5e7eb; }
-        #rss-ticker-content span.rss-item { margin: 0 1.5rem; }
-        #rss-ticker-content span.rss-separator { color: #6b7280; margin: 0 0.5rem; }
-        @keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
-
-        /* Watermark Positions */
-        .top-left { top: 10px; left: 10px; } .top-right { top: 10px; right: 10px; } .bottom-left { bottom: 10px; left: 10px; } .bottom-right { bottom: 10px; right: 10px; }
+        #rss-ticker-container {
+            position: absolute;
+            bottom: 80px; /* Position above the main widget container */
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 0.5rem 0;
+            overflow: hidden; /* Crucial for ticker effect */
+            white-space: nowrap; /* Crucial for ticker effect */
+            z-index: 11; /* Above main widgets */
+            box-sizing: border-box;
+            pointer-events: none;
+            transition: transform 0.5s ease-out; /* For pixel shift */
+        }
+        #rss-ticker-content {
+            display: inline-block; /* Allows it to be wider than container for scrolling */
+            padding-left: 100%; /* Start off-screen to the right */
+            /* Animation duration set by JS using CSS variable */
+            animation: ticker-scroll var(--rss-scroll-duration, 80s) linear infinite;
+            font-size: 1rem;
+            color: #e5e7eb; /* light gray */
+        }
+        #rss-ticker-content span.rss-item {
+            margin: 0 1.5rem; /* Spacing between RSS items */
+        }
+        #rss-ticker-content span.rss-separator {
+            color: #6b7280; /* gray-500 for separator */
+            margin: 0 0.5rem;
+        }
+        @keyframes ticker-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); } /* Scrolls entire content width to the left */
+        }
     </style>
 </head>
 <body class="bg-black text-white font-sans overflow-hidden">
 
     <div id="slideshow-container" class="relative w-full h-screen overflow-hidden">
         <div id="status-message-display">
-            {# Updated variable name #}
+            {# Displayed if no media items are available #}
             {% if not media_items %}
                 <p>No valid media found for slideshow.</p>
             {% endif %}
         </div>
-        {# Image Element #}
+        {# Image Element for displaying images #}
         <img id="slideshow-image" src="" alt="Slideshow Image" class="absolute top-0 left-0 w-full h-full">
 
-        {# Video Element (NEW) #}
+        {# Video Element for displaying videos #}
         <video id="slideshow-video" src="" class="absolute top-0 left-0 w-full h-full">
             Your browser does not support the video tag.
         </video>
+
+        {# Overlay Branding Element - Rendered if enabled in config #}
+        {% if config.overlay.enabled %}
+        <div id="overlay-branding-container">
+            <div id="overlay-branding-content">
+                {# Content (logo image, text span) will be dynamically added and styled by slideshow.js #}
+                {# based on config.overlay.display_mode and other settings. #}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
-    {# --- Widgets (No changes needed) --- #}
-    {% if config.watermark.enabled and config.watermark.text %}
-    <div id="watermark" class="widget {{ config.watermark.position | default('bottom-right') }}">
-        {{ config.watermark.text }}
-    </div>
-    {% endif %}
-
+    {# Widgets Container (time, weather) #}
     <div id="widget-container">
         {% if config.widgets.time.enabled %}
         <div id="time-widget" class="widget">
              <span id="time-display">--:--:-- --</span>
         </div>
-        {% else %} <div></div> {% endif %}
+        {% else %} <div></div> {# Empty div to maintain flexbox layout if one widget is disabled #} {% endif %}
 
         {% if config.widgets.weather.enabled and weather %}
             <div id="weather-widget" class="widget">
@@ -92,16 +225,18 @@
                 <span id="weather-temp">{{ weather.main.temp | round | int }}&deg;F</span>,
                 <span id="weather-desc">{{ weather.weather[0].description | title }}</span>
                 {% if weather.weather[0].icon %}
-                <img src="https://openweathermap.org/img/wn/{{ weather.weather[0].icon }}.png" alt="">
+                <img src="https://openweathermap.org/img/wn/{{ weather.weather[0].icon }}.png" alt="Weather icon">
                 {% endif %}
             </div>
-        {% elif not config.widgets.time.enabled %} <div></div> {% endif %}
+        {% elif not config.widgets.time.enabled %} <div></div> {# Another empty div if both time and weather are off #} {% endif %}
     </div>
 
+    {# RSS Ticker Container - Rendered if enabled in config #}
     {% if config.widgets.rss.enabled and rss_headlines %}
     <div id="rss-ticker-container">
         <div id="rss-ticker-content">
-            {% for _ in range(2) %} {# Duplicate content for seamless scroll #}
+            {# Duplicate content for seamless scroll effect #}
+            {% for _ in range(2) %}
                 {% for item in rss_headlines %}
                     <span class="rss-item">{{ item.title }}</span>
                     <span class="rss-separator"> // </span>
@@ -110,42 +245,33 @@
         </div>
     </div>
     {% endif %}
-    {# --- End Widgets --- #}
 
     <script>
-        // --- Initialize Slideshow Data ---
+        // Initialize slideshowData with data passed from Flask template
         let slideshowData = null;
         try {
-            // Pass data directly from Flask template
             slideshowData = {
-                // *** Use media_items list (contains dicts with 'filename' and 'type') ***
                 mediaItems: {{ media_items | tojson | safe }},
-                config: {{ config | tojson | safe }}, // Contains all nested settings
+                config: {{ config | tojson | safe }}, // Contains all nested settings, including 'overlay'
                 initialTimestamp: {% if initial_config_timestamp is not none %}{{ initial_config_timestamp }}{% else %}null{% endif %},
-                // *** Rename to mediaBaseUrl ***
                 mediaBaseUrl: "{{ url_for('main_bp.serve_uploaded_media', filename='') }}",
                 weatherError: {{ weather_error | tojson | safe }},
                 rssError: {{ rss_error | tojson | safe }}
             };
 
-            if (slideshowData.weatherError) { console.error("Weather Widget Error:", slideshowData.weatherError); }
-            if (slideshowData.rssError) { console.error("RSS Widget Error:", slideshowData.rssError); }
-
-            // --- Data Restructuring/Defaults (Simplified as config is now passed fully structured) ---
-            // Access nested config directly, e.g., slideshowData.config.slideshow.duration_seconds
-            // Ensure nested objects exist for safety before accessing properties in JS if needed
+            // Ensure nested config objects exist for safety, especially if accessed directly later in JS
             slideshowData.config = slideshowData.config || {};
             slideshowData.config.slideshow = slideshowData.config.slideshow || {};
-            slideshowData.config.watermark = slideshowData.config.watermark || {};
+            slideshowData.config.overlay = slideshowData.config.overlay || {}; // Crucial for overlay logic
             slideshowData.config.widgets = slideshowData.config.widgets || {};
             slideshowData.config.widgets.time = slideshowData.config.widgets.time || {};
             slideshowData.config.widgets.weather = slideshowData.config.widgets.weather || {};
             slideshowData.config.widgets.rss = slideshowData.config.widgets.rss || {};
             slideshowData.config.burn_in_prevention = slideshowData.config.burn_in_prevention || {};
 
-            console.log("Slideshow Data Constructed Successfully:", slideshowData);
+            console.log("Slideshow Data with Overlay Config:", slideshowData);
 
-            // Check if media list is empty and update status message
+             // Check if media list is empty and update status message if needed
              if (!slideshowData.mediaItems || slideshowData.mediaItems.length === 0) {
                  const statusDisplay = document.getElementById('status-message-display');
                  if (statusDisplay && !statusDisplay.querySelector('p')) {
@@ -159,7 +285,7 @@
             if (statusDisplay) {
                 statusDisplay.innerHTML = '<p style="color: red;">Error loading slideshow data. Please check console.</p>';
             }
-            slideshowData = null; // Ensure it's null on error
+            slideshowData = null; // Ensure it's null on error so JS knows data is bad
         }
     </script>
 
