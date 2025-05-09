@@ -7,11 +7,9 @@ import requests
 import feedparser
 import traceback
 from flask import (Blueprint, render_template, current_app, send_from_directory,
-                   jsonify)
+                   jsonify, make_response) # Added make_response
 from .extensions import db
-# *** RENAMED: ImageFile -> MediaFile ***
 from .models import MediaFile, Setting
-# *** Use renamed get_database_media ***
 from .utils import get_setting, get_config_timestamp_from_db, get_database_media, load_settings_from_db
 from .config import DEFAULT_SETTINGS_DB
 
@@ -72,12 +70,10 @@ def slideshow_viewer():
     }
 
     # --- Get Validated Media List ---
-    # *** Use renamed util function ***
     all_db_media, _ = get_database_media()
     valid_media_list = []
     for media in all_db_media:
         if media.check_files_exist(): # Checks primary file exists
-            # *** Store filename and type ***
             valid_media_list.append({
                 'filename': media.get_disk_filename(),
                 'type': media.media_type
@@ -91,10 +87,13 @@ def slideshow_viewer():
     # Apply ordering (random or sequential)
     if current_config['slideshow']['image_order'] == 'random':
         random.shuffle(valid_media_list)
-    # Sequential order is the default from the DB query (usually by ID or upload time)
 
-    # --- Fetch Weather / RSS (No changes needed here) ---
-    weather_data = None; weather_error = None; rss_data = None; rss_error = None
+    # --- Fetch Weather / RSS ---
+    weather_data = None
+    weather_error = None
+    rss_data = None
+    rss_error = None
+
     weather_widget_config = current_config.get('widgets', {}).get('weather', {})
     openweathermap_api_key = os.environ.get('OPENWEATHERMAP_API_KEY')
     if weather_widget_config.get('enabled'):
@@ -102,31 +101,51 @@ def slideshow_viewer():
         if location and openweathermap_api_key:
             try:
                 weather_url = f"https://api.openweathermap.org/data/2.5/weather?q={location}&appid={openweathermap_api_key}&units=imperial"
-                response = requests.get(weather_url, timeout=10); response.raise_for_status(); weather_data = response.json()
-                # print(f"Successfully fetched weather for {location}") # Less verbose
-            except requests.exceptions.RequestException as e: print(f"Error fetching weather data: {e}"); weather_error = f"Network/API Error: {e}"
-            except Exception as e: print(f"Unexpected error processing weather data: {e}"); traceback.print_exc(); weather_error = f"Processing Error: {e}"
-        elif not openweathermap_api_key: print("Weather widget enabled, but OPENWEATHERMAP_API_KEY environment variable is not set."); weather_error = "API Key Missing"
-        elif not location: print("Weather widget enabled, but no location is set."); weather_error = "Location Missing"
+                response = requests.get(weather_url, timeout=10)
+                response.raise_for_status() # Raises an HTTPError for bad responses (4XX or 5XX)
+                weather_data = response.json()
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching weather data: {e}")
+                weather_error = f"Network/API Error: {e}"
+            except Exception as e: # Catch other potential errors like JSON decoding
+                print(f"Unexpected error processing weather data: {e}")
+                traceback.print_exc()
+                weather_error = f"Processing Error: {e}"
+        elif not openweathermap_api_key:
+             print("Weather widget enabled, but OPENWEATHERMAP_API_KEY environment variable is not set.")
+             weather_error = "API Key Missing"
+        elif not location:
+             print("Weather widget enabled, but no location is set.")
+             weather_error = "Location Missing"
 
     rss_widget_config = current_config.get('widgets', {}).get('rss', {})
     if rss_widget_config.get('enabled'):
         feed_url = rss_widget_config.get('feed_url')
         if feed_url:
             try:
-                # *** REMOVED INCORRECT JAVASCRIPT BLOCK THAT WAS HERE ***
-                headers = {'User-Agent': f"ShowGo/{config.get('VERSION', '1.0')}"}
+                headers = {'User-Agent': f"ShowGo/{current_app.config.get('VERSION', '1.0')}"} # Use current_app.config
                 rss_data_raw = feedparser.parse(feed_url, agent=headers['User-Agent'])
-                if rss_data_raw.bozo: bozo_exception_msg = str(rss_data_raw.bozo_exception) if hasattr(rss_data_raw, 'bozo_exception') else "Unknown parsing issue"; print(f"Error parsing RSS feed (bozo): {feed_url} - {bozo_exception_msg}"); rss_error = f"Feed Parsing Error: {bozo_exception_msg}"
-                elif rss_data_raw.entries: rss_data = [{'title': entry.get('title', 'No Title'), 'link': entry.get('link', '#')} for entry in rss_data_raw.entries[:15]]; print(f"Successfully parsed {len(rss_data)} RSS headlines from {feed_url}")
-                else: print(f"RSS feed parsed but no entries found: {feed_url}"); rss_error = "Feed Empty"
-            except Exception as e: print(f"Error fetching or parsing RSS feed: {e}"); traceback.print_exc(); rss_error = f"Fetch/Parse Error: {e}"
-        else: print("RSS widget enabled, but no feed URL is set."); rss_error = "Feed URL Missing"
+                # *** CORRECTED SYNTAX FOR RSS PARSING BLOCK ***
+                if rss_data_raw.bozo:
+                    bozo_exception_msg = str(rss_data_raw.bozo_exception) if hasattr(rss_data_raw, 'bozo_exception') else "Unknown parsing issue"
+                    print(f"Error parsing RSS feed (bozo): {feed_url} - {bozo_exception_msg}")
+                    rss_error = f"Feed Parsing Error: {bozo_exception_msg}"
+                elif rss_data_raw.entries:
+                    rss_data = [{'title': entry.get('title', 'No Title'), 'link': entry.get('link', '#')} for entry in rss_data_raw.entries[:15]]
+                    print(f"Successfully parsed {len(rss_data)} RSS headlines from {feed_url}")
+                else:
+                    print(f"RSS feed parsed but no entries found: {feed_url}")
+                    rss_error = "Feed Empty"
+            except Exception as e:
+                print(f"Error fetching or parsing RSS feed: {e}")
+                traceback.print_exc()
+                rss_error = f"Fetch/Parse Error: {e}"
+        else:
+            print("RSS widget enabled, but no feed URL is set.")
+            rss_error = "Feed URL Missing"
 
-    # Pass the structured config and the list of media items (dicts)
     return render_template('slideshow.html',
-                           config=current_config, # Contains nested slideshow/widget settings
-                           # *** Pass the list of media dicts ***
+                           config=current_config,
                            media_items=valid_media_list,
                            weather=weather_data,
                            weather_error=weather_error,
@@ -135,33 +154,49 @@ def slideshow_viewer():
                            initial_config_timestamp=config_timestamp)
 
 
-# *** RENAMED: serve_uploaded_image -> serve_uploaded_media ***
 @main_bp.route('/uploads/<path:filename>')
 def serve_uploaded_media(filename):
-    """Serves original uploaded media files (images and videos)."""
+    """Serves original uploaded media files (images and videos) with caching."""
     upload_folder = current_app.config['UPLOAD_FOLDER']
-    # Use send_from_directory for security and proper MIME type handling
-    return send_from_directory(upload_folder, filename)
+    response = make_response(send_from_directory(upload_folder, filename))
+    response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return response
 
 
 @main_bp.route('/thumbnails/<path:filename>')
 def serve_thumbnail(filename):
-    """Serves thumbnail images, providing a placeholder if not found."""
+    """Serves thumbnail images, providing a placeholder if not found, with caching."""
     thumbnail_folder = current_app.config['THUMBNAIL_FOLDER']
     static_folder_images = os.path.join(current_app.static_folder, 'images')
-    requested_path = os.path.join(thumbnail_folder, filename); safe_path = os.path.abspath(requested_path)
-    if not safe_path.startswith(os.path.abspath(thumbnail_folder)): print(f"Forbidden access attempt for thumbnail: {filename}"); return "Forbidden", 403
+    requested_path = os.path.join(thumbnail_folder, filename)
+    safe_path = os.path.abspath(requested_path)
+
+    if not safe_path.startswith(os.path.abspath(thumbnail_folder)):
+        print(f"Forbidden access attempt for thumbnail: {filename}")
+        return "Forbidden", 403
+
     if not os.path.isfile(safe_path):
         print(f"Thumbnail not found: {filename}. Serving placeholder.")
         placeholder = os.path.join(static_folder_images, 'placeholder_thumb.png')
-        if os.path.isfile(placeholder): return send_from_directory(static_folder_images, 'placeholder_thumb.png')
-        else: print("Placeholder thumbnail image not found!"); return "Not Found", 404
-    return send_from_directory(thumbnail_folder, filename)
+        if os.path.isfile(placeholder):
+            resp_placeholder = make_response(send_from_directory(static_folder_images, 'placeholder_thumb.png'))
+            resp_placeholder.headers['Cache-Control'] = 'public, max-age=3600' # Cache placeholder for 1 hour
+            return resp_placeholder
+        else:
+            print("Placeholder thumbnail image not found!")
+            return "Not Found", 404
+
+    response = make_response(send_from_directory(thumbnail_folder, filename))
+    response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    return response
 
 
 @main_bp.route('/api/config/check')
 def check_config():
     """API endpoint for the client to check for configuration updates."""
     timestamp = get_config_timestamp_from_db()
-    if timestamp is None: print("Error: check_config failed because get_config_timestamp_from_db returned None."); return jsonify({'error': 'Could not retrieve configuration status from server.', 'timestamp': 0}), 500
-    else: return jsonify({'timestamp': timestamp})
+    if timestamp is None:
+         print("Error: check_config failed because get_config_timestamp_from_db returned None.")
+         return jsonify({'error': 'Could not retrieve configuration status from server.', 'timestamp': 0}), 500
+    else:
+         return jsonify({'timestamp': timestamp})

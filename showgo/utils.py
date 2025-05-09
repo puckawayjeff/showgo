@@ -28,13 +28,12 @@ except ImportError:
     class Image: pass
 
 # --- File Handling Helpers ---
-
+# (get_media_type, allowed_file, _get_video_duration, generate_thumbnail, is_web_friendly_video remain the same)
 def get_media_type(filename):
     """Determines if a file is an image or video based on its extension."""
     if not filename or '.' not in filename:
         return None
     ext = filename.rsplit('.', 1)[1].lower()
-    # Use current_app safely within the function
     image_exts = current_app.config.get('ALLOWED_IMAGE_EXTENSIONS', set()) if current_app else set()
     video_exts = current_app.config.get('ALLOWED_VIDEO_EXTENSIONS', set()) if current_app else set()
     if ext in image_exts:
@@ -46,27 +45,25 @@ def get_media_type(filename):
 
 def allowed_file(filename):
     """Checks if the filename has an allowed image or video extension."""
-    # Use current_app safely within the function
     allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS', set()) if current_app else set()
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 def _get_video_duration(source_path):
     """Uses ffprobe to get the duration of a video file in seconds."""
-    command = [
-        'ffprobe',
-        '-v', 'quiet', # Suppress verbose output
-        '-print_format', 'json', # Output format
-        '-show_format', # Request format information (includes duration)
-        source_path
-    ]
+    if not shutil.which("ffprobe"):
+        print("ERROR: ffprobe command not found. Cannot get video duration.")
+        return None
+    command = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', source_path]
     try:
-        process = subprocess.run(command, capture_output=True, text=True, check=True)
+        process = subprocess.run(command, capture_output=True, text=True, check=True, timeout=10)
         data = json.loads(process.stdout)
-        # Extract duration safely
         duration = float(data['format']['duration'])
         return duration
     except FileNotFoundError:
-        print("ERROR: ffprobe command not found. Ensure ffmpeg is installed and in PATH.")
+        print("ERROR: ffprobe command not found (unexpected).")
+        return None
+    except subprocess.TimeoutExpired:
+        print(f"ERROR: ffprobe timed out for {os.path.basename(source_path)}.")
         return None
     except subprocess.CalledProcessError as e:
         print(f"ERROR: ffprobe failed for {os.path.basename(source_path)}: {e.stderr}")
@@ -82,15 +79,16 @@ def _get_video_duration(source_path):
 def generate_thumbnail(source_path, dest_path, size, media_type='image'):
     """Generates a thumbnail for an image (Pillow) or video (ffmpeg)."""
     dest_dir = os.path.dirname(dest_path)
-    os.makedirs(dest_dir, exist_ok=True) # Ensure destination directory exists
-
+    os.makedirs(dest_dir, exist_ok=True)
     if media_type == 'video':
+        if not shutil.which("ffmpeg"):
+            print("ERROR: ffmpeg command not found. Cannot generate video thumbnail.")
+            return False, None
         print(f"Attempting video thumbnail generation for: {os.path.basename(source_path)}")
         duration = _get_video_duration(source_path)
         if duration is None or duration <= 0:
             print(f"Could not get valid duration for {os.path.basename(source_path)}, skipping thumbnail.")
             return False, None
-
         seek_time = max(0.1, duration * 0.1)
         ffmpeg_command = [
             'ffmpeg', '-ss', str(seek_time), '-i', source_path,
@@ -99,27 +97,26 @@ def generate_thumbnail(source_path, dest_path, size, media_type='image'):
         ]
         try:
             print(f"Running ffmpeg command: {' '.join(ffmpeg_command)}")
-            process = subprocess.run(ffmpeg_command, capture_output=True, text=True, check=True)
+            process = subprocess.run(ffmpeg_command, capture_output=True, text=True, check=True, timeout=15)
             print(f"Successfully generated video thumbnail: {dest_path}")
             return True, dest_path
         except FileNotFoundError:
-            print("ERROR: ffmpeg command not found. Ensure ffmpeg is installed and in PATH.")
+            print("ERROR: ffmpeg command not found (unexpected).")
+            return False, None
+        except subprocess.TimeoutExpired:
+            print(f"ERROR: ffmpeg timed out generating thumbnail for {os.path.basename(source_path)}.")
             return False, None
         except subprocess.CalledProcessError as e:
             print(f"ERROR: ffmpeg failed for {os.path.basename(source_path)}:")
             print(f"Stderr: {e.stderr}")
-            # Attempt to delete potentially corrupted output file
             if os.path.exists(dest_path):
-                try:
-                    os.remove(dest_path)
-                except OSError:
-                    pass # Ignore error during cleanup attempt
+                try: os.remove(dest_path)
+                except OSError: pass
             return False, None
         except Exception as e:
              print(f"ERROR: Unexpected error generating video thumbnail for {os.path.basename(source_path)}: {e}")
              traceback.print_exc()
              return False, None
-
     elif media_type == 'image':
         if not PIL_AVAILABLE:
             print("WARNING: Pillow not available, cannot generate image thumbnail.")
@@ -131,8 +128,7 @@ def generate_thumbnail(source_path, dest_path, size, media_type='image'):
             with Image.open(source_path) as img:
                 if img.format == 'GIF' and getattr(img, 'is_animated', False):
                     img.seek(0)
-                    if img.mode != 'RGB':
-                        img = img.convert('RGB')
+                    if img.mode != 'RGB': img = img.convert('RGB')
                 img.thumbnail(size)
                 thumb_format = current_app.config.get('THUMBNAIL_FORMAT', 'PNG') if current_app else 'PNG'
                 if thumb_format.upper() == 'JPEG' and img.mode in ('RGBA', 'LA', 'P'):
@@ -152,8 +148,60 @@ def generate_thumbnail(source_path, dest_path, size, media_type='image'):
     else:
         print(f"ERROR: Unknown media type '{media_type}' for thumbnail generation.")
         return False, None
-# --- End File Handling Helpers ---
 
+def is_web_friendly_video(source_path):
+    """Checks if a video file has web-friendly video and audio codecs using ffprobe."""
+    if not current_app:
+        print("ERROR: Cannot check video friendliness without app context.")
+        return False
+    if not shutil.which("ffprobe"):
+        print("ERROR: ffprobe command not found. Cannot validate video codecs.")
+        flash("Server configuration error: ffprobe is not installed. Video validation skipped.", "warning")
+        return True
+    allowed_video_codecs = current_app.config.get('ALLOWED_VIDEO_CODECS', set())
+    allowed_audio_codecs = current_app.config.get('ALLOWED_AUDIO_CODECS', set())
+    command = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', source_path]
+    try:
+        print(f"Running ffprobe for codec check: {' '.join(command)}")
+        process = subprocess.run(command, capture_output=True, text=True, check=True, timeout=10)
+        data = json.loads(process.stdout)
+        if 'streams' not in data or not data['streams']:
+            print(f"WARNING: No streams found by ffprobe for {os.path.basename(source_path)}")
+            return False
+        has_allowed_video_stream = False
+        all_audio_streams_allowed = True
+        found_audio_stream = False
+        for stream in data['streams']:
+            codec_type = stream.get('codec_type')
+            codec_name = stream.get('codec_name')
+            if codec_type == 'video':
+                if codec_name in allowed_video_codecs:
+                    has_allowed_video_stream = True
+                    print(f"Found allowed video stream: {codec_name}")
+                else:
+                    print(f"Found UNALLOWED video stream: {codec_name} for {os.path.basename(source_path)}")
+                    return False
+            elif codec_type == 'audio':
+                found_audio_stream = True
+                if codec_name not in allowed_audio_codecs:
+                    all_audio_streams_allowed = False
+                    print(f"Found UNALLOWED audio stream: {codec_name} for {os.path.basename(source_path)}")
+                    break
+                else:
+                    print(f"Found allowed audio stream: {codec_name}")
+        if not has_allowed_video_stream:
+            print(f"No allowed video stream found in {os.path.basename(source_path)}")
+            return False
+        if found_audio_stream and not all_audio_streams_allowed:
+            return False
+        print(f"Video codecs for {os.path.basename(source_path)} are web-friendly.")
+        return True
+    except FileNotFoundError: print("ERROR: ffprobe command not found (unexpected during codec check)."); return False
+    except subprocess.TimeoutExpired: print(f"ERROR: ffprobe timed out during codec check for {os.path.basename(source_path)}."); return False
+    except subprocess.CalledProcessError as e: print(f"ERROR: ffprobe failed during codec check for {os.path.basename(source_path)}: {e.stderr}"); return False
+    except (KeyError, ValueError, json.JSONDecodeError) as e: print(f"ERROR: Could not parse ffprobe stream output for {os.path.basename(source_path)}: {e}"); return False
+    except Exception as e: print(f"ERROR: Unexpected error during video codec check for {os.path.basename(source_path)}: {e}"); traceback.print_exc(); return False
+# --- End File Handling Helpers ---
 
 # --- Database Initialization/Self-Healing Function ---
 def initialize_database():
@@ -163,50 +211,39 @@ def initialize_database():
         if not current_app:
             print("ERROR: Cannot initialize database outside application context.")
             return False
-
         with current_app.app_context():
-            # Create all tables defined in models (idempotent)
-            # This is safe to run even if tables exist
             db.create_all()
             print("Tables checked/created.")
-
-            # Populate default settings
             defaults = current_app.config.get('DEFAULT_SETTINGS_DB', DEFAULT_SETTINGS_DB)
-            settings_merged = False
+            settings_added_count = 0
             for key, default_value in defaults.items():
-                # Use merge for idempotency: adds if not exists, updates if exists (based on PK)
-                setting = Setting(key=key, value=default_value)
-                db.session.merge(setting)
-                settings_merged = True # Mark that we attempted merges
-
-            if settings_merged:
+                existing_setting = db.session.get(Setting, key)
+                if existing_setting is None:
+                    print(f"Adding missing default setting: {key} = {default_value}")
+                    new_setting = Setting(key=key, value=default_value)
+                    db.session.add(new_setting)
+                    settings_added_count += 1
+            if settings_added_count > 0:
                 try:
-                    db.session.commit() # Commit all merges/adds at once
-                    print("Default settings checked/merged.")
-                except IntegrityError:
-                    db.session.rollback()
-                    print("Warning: Integrity error during default settings merge, rolled back.")
+                    db.session.commit()
+                    print(f"Added {settings_added_count} new default settings.")
                 except Exception as commit_err:
-                     db.session.rollback()
-                     print(f"ERROR committing default settings: {commit_err}")
-                     traceback.print_exc()
-                     return False # Fail initialization if defaults can't be saved
-
-            # Cleanup old API key setting (still relevant)
+                    db.session.rollback()
+                    print(f"ERROR committing new default settings: {commit_err}")
+                    traceback.print_exc()
+            else:
+                print("All default settings already present or no new defaults to add.")
             old_api_key_setting = db.session.get(Setting, 'widgets_weather_api_key')
             if old_api_key_setting:
                 print("Removing obsolete 'widgets_weather_api_key' setting...")
                 db.session.delete(old_api_key_setting)
                 db.session.commit()
                 print("Obsolete setting removed.")
-
-            return True # Indicate success
-
+            return True
     except OperationalError as op_err:
         print(f"FATAL: Database connection/operation error during init: {op_err}")
         traceback.print_exc()
-        return False # Indicate failure
-
+        return False
     except Exception as e:
         print(f"ERROR during DB init: {e}")
         traceback.print_exc()
@@ -215,17 +252,15 @@ def initialize_database():
                 db.session.rollback()
         except Exception as rb_err:
             print(f"Rollback error after generic Exception: {rb_err}")
-        return False # Indicate failure
+        return False
 
 # --- Configuration Loading/Saving ---
 def get_setting(key, default=None):
     """Gets a setting value from database, with fallback and recovery."""
     try:
-        if not current_app:
-            return default
+        if not current_app: return default
         setting = Setting.query.filter_by(key=key).first()
-        if setting:
-            return setting.value
+        if setting: return setting.value
     except ProgrammingError as e:
         print(f"Database programming error getting setting '{key}': {e}. Attempting recovery.")
         if initialize_database():
@@ -242,8 +277,6 @@ def get_setting(key, default=None):
     except Exception as e:
         print(f"Error getting setting '{key}': {e}")
         traceback.print_exc()
-
-    # Fallback logic
     app_config = current_app.config if current_app else {}
     default_settings = app_config.get('DEFAULT_SETTINGS_DB', DEFAULT_SETTINGS_DB)
     return default if default is not None else default_settings.get(key)
@@ -252,9 +285,7 @@ def load_settings_from_db():
     """Loads all settings, attempting recovery if table is missing. Returns merged dict."""
     defaults = current_app.config.get('DEFAULT_SETTINGS_DB', DEFAULT_SETTINGS_DB) if current_app else DEFAULT_SETTINGS_DB.copy()
     settings_dict = defaults.copy()
-    if not current_app:
-        return settings_dict
-
+    if not current_app: return settings_dict
     try:
         settings = Setting.query.all()
         db_settings_dict = {setting.key: setting.value for setting in settings}
@@ -293,6 +324,7 @@ def save_setting(key, value):
         return False
     try:
         setting = db.session.get(Setting, key)
+        # *** CORRECTED SYNTAX: if/else block properly formatted ***
         if setting:
             setting.value = value
         else:
@@ -302,10 +334,10 @@ def save_setting(key, value):
         return True
     except ProgrammingError as e:
          print(f"Database programming error saving setting '{key}': {e}. Attempting recovery.")
-         db.session.rollback()
+         db.session.rollback() # Rollback the failed attempt first
          if initialize_database():
              print(f"Recovery ok. Retrying save '{key}'.")
-             try:
+             try: # Retry logic
                  setting = db.session.get(Setting, key)
                  if setting:
                      setting.value = value
@@ -321,6 +353,7 @@ def save_setting(key, value):
                  return False
          else:
              print(f"ERROR: DB recovery failed saving '{key}'.")
+             # Rollback already happened before initialize_database call
              return False
     except OperationalError as op_e:
          db.session.rollback()
@@ -337,25 +370,20 @@ def get_config_timestamp_from_db():
      if not current_app:
          print("ERROR: Cannot get timestamp without app context.")
          return None
-
      latest_setting_ts = 0.0
      media_changed_ts = 0.0
-
      try:
           latest_setting = Setting.query.order_by(Setting.last_updated.desc()).first()
           if latest_setting and isinstance(latest_setting.last_updated, datetime):
               latest_setting_ts = latest_setting.last_updated.timestamp()
-
           media_ts_value = get_setting('media_last_changed', 0.0)
           if isinstance(media_ts_value, (int, float)):
               media_changed_ts = float(media_ts_value)
           else:
               print(f"Warning: Invalid type for 'media_last_changed': {type(media_ts_value)}.")
               media_changed_ts = 0.0 # Default to 0 if type is wrong
-
           most_recent_ts = max(latest_setting_ts, media_changed_ts)
           return most_recent_ts
-
      except ProgrammingError as e:
           print(f"Database programming error getting timestamp: {e}. Attempting recovery.")
           if initialize_database():
@@ -387,7 +415,7 @@ def get_database_media():
          print(f"Database programming error getting media: {e}. Attempting recovery.")
          if initialize_database():
              print("Recovery ok. Retrying media query.")
-             try:
+             try: # Retry query once
                  all_media = MediaFile.query.all()
                  db_uuids = {media.uuid_filename for media in all_media}
                  return all_media, db_uuids
@@ -434,7 +462,6 @@ def find_unexpected_items(db_uuids):
     thumbnail_ext = current_app.config['THUMBNAIL_EXT']
     allowed_media_extensions = current_app.config.get('ALLOWED_EXTENSIONS', set())
 
-    # Scan Uploads Folder
     if os.path.isdir(upload_folder):
         try:
             for item_name in os.listdir(upload_folder):
@@ -456,7 +483,6 @@ def find_unexpected_items(db_uuids):
     else:
         print(f"Warning: Upload directory not found: {upload_folder}")
 
-    # Scan Thumbnails Folder
     if os.path.isdir(thumbnail_folder):
         try:
             for item_name in os.listdir(thumbnail_folder):

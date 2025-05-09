@@ -17,6 +17,7 @@ __pycache__/
 # These should be handled by volumes during runtime.
 uploads/
 thumbnails/
+instance/
 
 # Don't copy local config file into the image if it contains secrets
 # A default/template config could be copied instead, or rely on volume mount.
