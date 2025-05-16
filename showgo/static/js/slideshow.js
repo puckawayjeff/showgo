@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let isTransitioning = false;
     const doubleTapDelay = 400;
     let lastTap = 0;
+    let lastTouchStartCount = 0;
+    let persistentTouchCount = 0;
 
     const shiftableElementMap = {
         'overlay': overlayBrandingContainer, // Target the main container for shifting
@@ -430,9 +432,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function handleDoubleTap(event) {
+        // Only allow single-finger taps for double-tap logic
+        if (lastTouchStartCount !== 1) return;
         const currentTime = new Date().getTime();
         const tapLength = currentTime - lastTap;
-        if (tapLength < doubleTapDelay && tapLength > 0) { event.preventDefault(); toggleFullScreen(); }
+        if (tapLength < doubleTapDelay && tapLength > 0) {
+            event.preventDefault();
+            // If 2+ other fingers are held, open config
+            if (persistentTouchCount >= 2) {
+                window.open('/config', '_blank');
+            } else {
+                toggleFullScreen();
+            }
+        }
         lastTap = currentTime;
     }
     async function checkForConfigUpdate() {
@@ -489,7 +501,17 @@ document.addEventListener('DOMContentLoaded', () => {
     } else { applyPixelShift(); /* Apply once to reset if disabled or no elements */ }
 
     // Event Listeners
-    if (slideshowContainer) { slideshowContainer.addEventListener('touchstart', handleDoubleTap, { passive: false }); slideshowContainer.addEventListener('dblclick', (event) => { event.preventDefault(); toggleFullScreen(); }); }
+    if (slideshowContainer) {
+        slideshowContainer.addEventListener('touchstart', function(event) {
+            persistentTouchCount = event.touches.length;
+        }, { passive: false });
+        slideshowContainer.addEventListener('touchend', function(event) {
+            // Remove the finger that just ended
+            persistentTouchCount = event.touches.length;
+        }, { passive: false });
+        slideshowContainer.addEventListener('touchend', handleDoubleTap, { passive: false });
+        slideshowContainer.addEventListener('dblclick', (event) => { event.preventDefault(); toggleFullScreen(); });
+    }
     document.addEventListener('keydown', (event) => { if (event.key === 'Enter' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) { event.preventDefault(); toggleFullScreen(); } });
     ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'msfullscreenchange'].forEach(event => document.addEventListener(event, handleFullscreenChange, false));
     handleFullscreenChange(); // Initial check for fullscreen state
@@ -500,5 +522,76 @@ document.addEventListener('DOMContentLoaded', () => {
         configCheckIntervalId = setInterval(checkForConfigUpdate, 30000); // Poll every 30 seconds
         console.log(`Started config polling. Initial timestamp: ${initialTimestamp}`);
     } else { console.warn("Config polling disabled due to missing or zero initial timestamp."); }
+
+    // --- Custom: Context Menu, Keyboard Shortcut, Touch Combo for Config ---
+    // 1. Disable context menu in fullscreen mode
+    document.addEventListener('contextmenu', function(e) {
+        const isFullscreen = !!(document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+        if (isFullscreen) {
+            e.preventDefault();
+        }
+    });
+
+    // 2. Keyboard shortcut: Ctrl+Shift+/ opens /config in new tab
+    document.addEventListener('keydown', function(e) {
+        // e.code === 'Slash' is '/' on most layouts
+        if (e.ctrlKey && e.shiftKey && (e.key === '?' || e.code === 'Slash')) {
+            window.open('/config', '_blank');
+        }
+    });
+
+    // 3. Three-finger double tap to open /config
+    let lastThreeFingerTapTime = 0;
+    let threeFingerTapCount = 0;
+    const threeFingerTapDelay = 400; // ms between taps
+
+    function handleThreeFingerTap(event) {
+        if (event.touches.length === 3) {
+            const now = Date.now();
+            if (now - lastThreeFingerTapTime < threeFingerTapDelay) {
+                threeFingerTapCount++;
+            } else {
+                threeFingerTapCount = 1;
+            }
+            lastThreeFingerTapTime = now;
+            if (threeFingerTapCount === 2) {
+                window.open('/config', '_blank');
+                threeFingerTapCount = 0;
+            }
+        } else {
+            threeFingerTapCount = 0;
+        }
+    }
+    // Listen on the main slideshow container for touchstart
+    if (slideshowContainer) {
+        slideshowContainer.addEventListener('touchstart', handleThreeFingerTap, { passive: false });
+    }
+
+    let multiFingerTapCount = 0;
+    let lastMultiFingerTapTime = 0;
+    const multiFingerDoubleTapDelay = 600; // ms
+
+    function handleMultiFingerTap(event) {
+        // Only consider taps with 3 or more fingers
+        if (event.touches.length === 0 && event.changedTouches.length >= 3) {
+            const now = Date.now();
+            if (now - lastMultiFingerTapTime < multiFingerDoubleTapDelay) {
+                multiFingerTapCount++;
+            } else {
+                multiFingerTapCount = 1;
+            }
+            lastMultiFingerTapTime = now;
+            if (multiFingerTapCount === 2) {
+                window.open('/config', '_blank');
+                multiFingerTapCount = 0;
+            }
+        } else {
+            multiFingerTapCount = 0;
+        }
+    }
+
+    if (slideshowContainer) {
+        slideshowContainer.addEventListener('touchend', handleMultiFingerTap, { passive: false });
+    }
 
 }); // End DOMContentLoaded

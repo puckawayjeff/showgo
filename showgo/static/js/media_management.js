@@ -12,21 +12,22 @@ function initializeVideoSettings() {
     const durationLimitCheckbox = document.querySelector('input[name="video_duration_limit_enabled"]');
     const durationLimitControls = document.getElementById('duration-limit-controls');
     const durationInput = document.getElementById('video_duration_limit');
-    const randomStartCheckbox = document.querySelector('input[name="video_random_start_enabled"]');
+    const randomStartOptions = document.getElementById('random-start-options');
 
-    if (durationLimitCheckbox && durationLimitControls && durationInput && randomStartCheckbox) {
-        durationLimitCheckbox.addEventListener('change', function() {
-            // Enable/disable and adjust opacity of duration controls
-            const isEnabled = this.checked;
-            durationLimitControls.classList.toggle('opacity-50', !isEnabled);
-            durationInput.disabled = !isEnabled;
-            
-            // Enable/disable random start checkbox based on duration limit
-            randomStartCheckbox.disabled = !isEnabled;
-            if (!isEnabled) {
-                randomStartCheckbox.checked = false;
-            }
-        });
+    function updateVideoSettingsUI() {
+        const isEnabled = durationLimitCheckbox.checked;
+        durationLimitControls.classList.toggle('opacity-50', !isEnabled);
+        durationInput.disabled = !isEnabled;
+        if (isEnabled) {
+            randomStartOptions.classList.remove('hidden');
+        } else {
+            randomStartOptions.classList.add('hidden');
+        }
+    }
+
+    if (durationLimitCheckbox && durationLimitControls && durationInput && randomStartOptions) {
+        durationLimitCheckbox.addEventListener('change', updateVideoSettingsUI);
+        updateVideoSettingsUI(); // Set initial state on page load
 
         // Ensure duration is reasonable when changed
         durationInput.addEventListener('change', function() {
