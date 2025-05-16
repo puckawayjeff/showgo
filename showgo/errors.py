@@ -44,7 +44,6 @@ def request_entity_too_large(error):
     # Access MAX_CONTENT_LENGTH from the current app's config
     max_size_mb = current_app.config.get('MAX_CONTENT_LENGTH', 256*1024*1024) // 1024 // 1024
     flash(f"Upload failed: File(s) exceed the maximum allowed size ({max_size_mb} MB).", "error")
-    # Redirect back to the image config page
-    # Use the correct endpoint name for the blueprint route
-    return redirect(url_for('config_bp.config_images'))
+    # Redirect back to the media config page
+    return redirect(url_for('config_bp.config_media'))
 

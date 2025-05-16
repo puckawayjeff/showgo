@@ -37,6 +37,33 @@ def create_app(config_class=Config):
     db.init_app(app)
     # auth is initialized in extensions.py and used via decorators
 
+    with app.app_context():
+        # Load specific image processing settings from DB into app.config
+        # These will override the defaults from config.py if they exist in the DB.
+        try:
+            max_res_setting = Setting.query.filter_by(key='DEFAULT_MAX_RESOLUTION').first()
+            if max_res_setting and max_res_setting.value is not None:
+                app.config['DEFAULT_MAX_RESOLUTION'] = max_res_setting.value
+                print(f"Loaded DEFAULT_MAX_RESOLUTION from DB: {max_res_setting.value}")
+
+            convert_webp_setting = Setting.query.filter_by(key='CONVERT_TO_WEBP').first()
+            if convert_webp_setting and convert_webp_setting.value is not None:
+                app.config['CONVERT_TO_WEBP'] = convert_webp_setting.get_bool() # Use get_bool for boolean settings
+                print(f"Loaded CONVERT_TO_WEBP from DB: {convert_webp_setting.get_bool()}")
+
+            webp_quality_setting = Setting.query.filter_by(key='WEBP_QUALITY').first()
+            if webp_quality_setting and webp_quality_setting.value is not None:
+                app.config['WEBP_QUALITY'] = int(webp_quality_setting.value) # Ensure it's an int
+                print(f"Loaded WEBP_QUALITY from DB: {int(webp_quality_setting.value)}")
+            
+        except OperationalError as oe:
+            print(f"WARNING: Database operational error while trying to load image settings: {oe}")
+            print("         Application will use default image settings from config.py.")
+        except Exception as e:
+            print(f"ERROR: Could not load image processing settings from DB: {e}")
+            traceback.print_exc()
+            print("       Continuing with default image settings.")
+
     # --- Load initial settings into cache ---
     # This needs the app context
     try:

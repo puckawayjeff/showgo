@@ -13,13 +13,31 @@ else:
     print("Warning: .env file not found (needed for SECRET_KEY).")
 
 
-# --- Default Settings ---
+# Image processing settings
+MAX_IMAGE_RESOLUTIONS = {
+    '1080p': (1920, 1080),
+    '4K': (3840, 2160),
+}
+DEFAULT_MAX_RESOLUTION = '1080p'
+VGA_RESOLUTION = (640, 480)    # Warning threshold for low-res images
+CONVERT_TO_WEBP = False        # Default setting for WebP conversion
+WEBP_QUALITY = 85             # Default WebP quality setting
+# WebP encoding method (0-6, higher = better compression but slower)
+WEBP_METHOD = 4
+
+# Allowed file extensions
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'ogg'}
 ALLOWED_VIDEO_CODECS = {'h264', 'vp9', 'av1'}
 ALLOWED_AUDIO_CODECS = {'aac', 'opus', 'mp3', 'vorbis'}
 
+# --- Default Settings ---
 DEFAULT_SETTINGS_DB = {
+    # Media Processing Settings
+    "max_resolution": DEFAULT_MAX_RESOLUTION,
+    "convert_to_webp": CONVERT_TO_WEBP,
+    "webp_quality": WEBP_QUALITY,
+
     # Slideshow General
     "slideshow_duration_seconds": 10,
     "slideshow_transition_effect": "kenburns",
@@ -32,6 +50,9 @@ DEFAULT_SETTINGS_DB = {
     "slideshow_video_loop": False,
     "slideshow_video_muted": True,
     "slideshow_video_show_controls": False,
+    "slideshow_video_duration_limit_enabled": False,
+    "slideshow_video_duration_limit_seconds": 30,
+    "slideshow_video_random_start_enabled": False,
 
     # *** RENAMED & EXPANDED: Overlay Branding (formerly Watermark) ***
     "overlay_enabled": False,
@@ -75,6 +96,14 @@ class Config:
     """Base configuration settings."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'a-default-secret-key-replace-me'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Image processing settings
+    MAX_IMAGE_RESOLUTIONS = MAX_IMAGE_RESOLUTIONS
+    DEFAULT_MAX_RESOLUTION = DEFAULT_MAX_RESOLUTION
+    VGA_RESOLUTION = VGA_RESOLUTION
+    CONVERT_TO_WEBP = CONVERT_TO_WEBP
+    WEBP_QUALITY = WEBP_QUALITY
+    WEBP_METHOD = WEBP_METHOD
 
     # Application directories
     BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))

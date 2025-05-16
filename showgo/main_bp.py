@@ -45,6 +45,9 @@ def slideshow_viewer():
             "video_loop": current_config_dict.get("slideshow_video_loop", defaults['slideshow_video_loop']),
             "video_muted": current_config_dict.get("slideshow_video_muted", defaults['slideshow_video_muted']),
             "video_show_controls": current_config_dict.get("slideshow_video_show_controls", defaults['slideshow_video_show_controls']),
+            "video_duration_limit_enabled": current_config_dict.get("slideshow_video_duration_limit_enabled", defaults['slideshow_video_duration_limit_enabled']),
+            "video_duration_limit_seconds": current_config_dict.get("slideshow_video_duration_limit_seconds", defaults['slideshow_video_duration_limit_seconds']),
+            "video_random_start_enabled": current_config_dict.get("slideshow_video_random_start_enabled", defaults['slideshow_video_random_start_enabled']),
         },
         "overlay": { # Changed from "watermark"
             "enabled": current_config_dict.get("overlay_enabled", defaults['overlay_enabled']),

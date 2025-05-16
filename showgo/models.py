@@ -10,7 +10,10 @@ class Setting(db.Model):
     __tablename__ = 'settings'
     key = db.Column(db.String(100), primary_key=True)
     value = db.Column(db.JSON)
-    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    def __init__(self, key=None, value=None):
+        self.key = key
+        self.value = value
 
     def __repr__(self):
         return f'<Setting {self.key}>'

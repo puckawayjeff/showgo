@@ -72,6 +72,52 @@
                 </div>
             </div>
 
+            {# Video Playback Advanced Settings - Moved into main form #}
+            <div class="form-group mt-4">
+                <label class="flex items-center">
+                    <input type="checkbox" name="video_duration_limit_enabled" 
+                           {% if video_duration_limit_enabled %}checked{% endif %}
+                           class="form-checkbox rounded border-gray-600 bg-gray-700 
+                                  text-indigo-600 shadow-sm focus:border-indigo-500 
+                                  focus:ring-indigo-500">
+                    <span class="ml-2 text-sm text-gray-300">
+                        Limit video playback duration
+                    </span>
+                </label>
+                <div class="mt-2 ml-6 {% if not video_duration_limit_enabled %}opacity-50{% endif %}"
+                     id="duration-limit-controls">
+                    <input type="number" id="video_duration_limit" 
+                           name="video_duration_limit_seconds"
+                           value="{{ video_duration_limit_seconds or 30 }}"
+                           min="1" max="3600" step="1"
+                           class="form-input w-24 rounded-md border-gray-600 
+                                  bg-gray-700 text-gray-300 shadow-sm 
+                                  focus:border-indigo-500 focus:ring-indigo-500"
+                           {% if not video_duration_limit_enabled %}disabled{% endif %}>
+                    <span class="text-sm text-gray-300">seconds</span>
+                </div>
+                <p class="mt-1 text-sm text-gray-500">
+                    Videos will stop playing after this duration
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label class="flex items-center">
+                    <input type="checkbox" name="video_random_start_enabled"
+                           {% if video_random_start_enabled %}checked{% endif %}
+                           {% if not video_duration_limit_enabled %}disabled{% endif %}
+                           class="form-checkbox rounded border-gray-600 bg-gray-700 
+                                  text-indigo-600 shadow-sm focus:border-indigo-500 
+                                  focus:ring-indigo-500">
+                    <span class="ml-2 text-sm text-gray-300">
+                        Randomize video start time
+                    </span>
+                </label>
+                <p class="mt-1 text-sm text-gray-500 ml-6">
+                    Start videos at a random point while ensuring the full duration can play
+                </p>
+            </div>
+
              <h3 class="text-base font-medium text-gray-400 mb-3 mt-4 border-b border-gray-700 pb-1">General Order</h3>
              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div class="form-group">

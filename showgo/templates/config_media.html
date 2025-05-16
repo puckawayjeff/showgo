@@ -42,28 +42,123 @@
 
     {# --- Upload and Management Section --- #}
     <div class="config-section">
-        <form id="upload-media-form" action="{{ url_for('config_bp.upload_media') }}" method="POST" enctype="multipart/form-data" class="mb-6 border-b border-gray-700 pb-6">
-            <h3 class="text-lg font-medium text-gray-300 mb-3">Upload New Media</h3>
-            <div class="form-group">
-                <label for="media_files">Select image or video files:</label>
-                <input type="file" id="media_files" name="media_files" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.ogg" required>
-                <p class="mt-1 text-xs text-gray-500">Max total upload size: {{ config.MAX_CONTENT_LENGTH // 1024 // 1024 }} MB. Allowed types: PNG, JPG, JPEG, GIF, WEBP, MP4, WEBM, OGG.</p>
+        <h3 class="text-lg font-medium text-gray-300 mb-3">Image Processing Settings</h3>
+        <form action="{{ url_for('config_bp.update_image_settings') }}" method="POST" class="mb-6">
+            <div class="space-y-4">
+                <div class="form-group">
+                    <label for="max_resolution" class="block text-sm font-medium text-gray-300">
+                        Maximum Image Resolution
+                    </label>
+                    <select id="max_resolution" name="max_resolution" 
+                            class="form-select mt-1 block w-full rounded-md border-gray-600 
+                                   bg-gray-700 text-gray-300 shadow-sm focus:border-indigo-500 
+                                   focus:ring-indigo-500">
+                        {% for res in config.MAX_IMAGE_RESOLUTIONS.keys() %}
+                            <option value="{{ res }}" 
+                                    {% if res == config.max_resolution %}selected{% endif %}>
+                                {{ res }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Images larger than this will be automatically resized (except animated GIFs)
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" id="convert_to_webp" name="convert_to_webp"
+                               {% if config.convert_to_webp %}checked{% endif %}
+                               class="form-checkbox rounded border-gray-600 text-indigo-600 
+                                      shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <span class="text-sm font-medium text-gray-300">Convert images to WebP format</span>
+                    </label>
+                    <p class="mt-1 text-sm text-gray-500">
+                        WebP images are smaller and load faster, but may not be supported by all browsers
+                    </p>
+                </div>
+
+                <div id="webp_quality_group" class="form-group" 
+                     style="display: {% if config.convert_to_webp %}block{% else %}none{% endif %}">
+                    <label for="webp_quality" class="block text-sm font-medium text-gray-300">
+                        WebP Quality: <span id="webp_quality_value">{{ config.webp_quality }}</span>
+                    </label>
+                    <input type="range" id="webp_quality" name="webp_quality"
+                           min="1" max="100" value="{{ config.webp_quality }}"
+                           class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                    <p class="mt-1 text-sm text-gray-500">
+                        Higher quality means larger file size (1-100)
+                    </p>
+                </div>
             </div>
-            <div class="flex items-center space-x-3">
-                 <button type="submit" id="upload-button" class="btn btn-primary">Upload Media</button>
-                 <div id="upload-spinner" class="hidden w-5 h-5 border-t-2 border-b-2 border-indigo-200 rounded-full animate-spin"></div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Save Image Settings</button>
             </div>
         </form>
 
-        <form id="delete-media-form" action="{{ url_for('config_bp.delete_media') }}" method="POST">
+        <form id="upload-media-form" action="{{ url_for('config_bp.upload_media') }}" 
+              method="POST" enctype="multipart/form-data" 
+              class="mb-6 border-b border-gray-700 pb-6">
+            <h3 class="text-lg font-medium text-gray-300 mb-3">Upload New Media</h3>
+            <div class="form-group">
+                <label for="media_files" class="block text-sm font-medium text-gray-300">
+                    Select image or video files:
+                </label>
+                <input type="file" id="media_files" name="media_files" multiple 
+                       accept="{% for ext in config.ALLOWED_EXTENSIONS %}.{{ ext }}{% if not loop.last %},{% endif %}{% endfor %}" 
+                       required
+                       class="mt-1 block w-full text-sm text-gray-300
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-md file:border-0
+                              file:text-sm file:font-medium
+                              file:bg-indigo-600 file:text-white
+                              hover:file:bg-indigo-700
+                              file:cursor-pointer">
+                <p class="mt-1 text-xs text-gray-500">
+                    Max total upload size: {{ config.MAX_CONTENT_LENGTH // 1024 // 1024 }} MB. 
+                    Allowed types: 
+                    {% for ext in config.ALLOWED_EXTENSIONS|sort %}
+                        {{ ext|upper }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}.
+                </p>
+            </div>
+            <div class="flex items-center space-x-3 mt-4">
+                <button type="submit" id="upload-button" class="btn btn-primary">
+                    Upload Media
+                </button>
+                <div id="upload-spinner" class="hidden w-5 h-5 border-t-2 border-b-2 
+                     border-indigo-200 rounded-full animate-spin">
+                </div>
+            </div>
+        </form>
+
+        <form id="delete-media-form" action="{{ url_for('config_bp.delete_media') }}" 
+              method="POST">
             <div class="flex justify-between items-center mb-3">
                  <h3 class="text-lg font-medium text-gray-300">Manage Uploaded Media</h3>
-                 <button type="submit" id="delete-button" class="btn btn-danger btn-sm" disabled>Delete Selected (<span id="selected-count">0</span>)</button>
+                <div class="flex items-center space-x-2">
+                    <div id="selection-controls" class="hidden">
+                        <button type="button" id="select-all" 
+                                class="btn btn-secondary btn-sm mr-2">
+                            Select All
+                        </button>
+                        <button type="button" id="select-none" 
+                                class="btn btn-secondary btn-sm mr-4">
+                            Select None
+                        </button>
+                    </div>
+                    <button type="submit" id="delete-button" 
+                            class="btn btn-danger btn-sm" disabled>
+                        Delete Selected (<span id="selected-count">0</span>)
+                    </button>
+                </div>
             </div>
-             <p class="text-sm text-gray-400 mb-4">Select media to delete. Click an item to select/deselect.</p>
-            {% if media_items %}
+            <p class="text-sm text-gray-400 mb-4">
+                Select media to delete. Click an item to select/deselect.
+            </p>
+            {% if media_files %}
             <div id="media-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 mb-4">
-                {% for media in media_items %}
+                {% for media in media_files %}
                 <div class="thumbnail-item relative" data-media-type="{{ media.media_type }}">
                     <input type="checkbox" name="selected_media" value="{{ media.id }}" id="media-{{ media.id }}" class="media-checkbox sr-only">
                     <label for="media-{{ media.id }}" class="block cursor-pointer">
@@ -101,84 +196,6 @@
 </div>
 {% endblock %}
 
-{# JS remains the same as previous version #}
 {% block page_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const grid = document.getElementById('media-grid');
-        const deleteButton = document.getElementById('delete-button');
-        const selectedCountSpan = document.getElementById('selected-count');
-        const deleteForm = document.getElementById('delete-media-form');
-        const uploadForm = document.getElementById('upload-media-form');
-        const uploadButton = document.getElementById('upload-button');
-        const uploadSpinner = document.getElementById('upload-spinner');
-
-        if (grid && deleteButton && selectedCountSpan && deleteForm) {
-            function updateDeleteButtonState() {
-                const checkedCheckboxes = grid.querySelectorAll('.media-checkbox:checked');
-                const count = checkedCheckboxes.length;
-                selectedCountSpan.textContent = count;
-                deleteButton.disabled = count === 0;
-                grid.querySelectorAll('.thumbnail-item').forEach(item => {
-                    const checkbox = item.querySelector('.media-checkbox');
-                    if (checkbox) { item.classList.toggle('is-selected', checkbox.checked); }
-                });
-            }
-            grid.addEventListener('click', function(event) {
-                 const thumbItem = event.target.closest('.thumbnail-item');
-                 if (thumbItem) {
-                     const checkbox = thumbItem.querySelector('.media-checkbox');
-                     if (checkbox) { checkbox.checked = !checkbox.checked; checkbox.dispatchEvent(new Event('change', { bubbles: true })); }
-                 }
-            });
-             grid.addEventListener('change', function(event) {
-                 if (event.target.classList.contains('media-checkbox')) { updateDeleteButtonState(); }
-             });
-            deleteForm.addEventListener('submit', function(event) {
-                const selectedCount = parseInt(selectedCountSpan.textContent, 10);
-                if (selectedCount > 0) {
-                    if (!confirm(`Are you sure you want to delete ${selectedCount} selected media file(s)? This cannot be undone.`)) { event.preventDefault(); }
-                } else { event.preventDefault(); }
-            });
-            updateDeleteButtonState();
-        }
-        if (uploadForm && uploadButton && uploadSpinner) {
-            uploadForm.addEventListener('submit', function(event) { // Added event to event listener
-                const fileInput = document.getElementById('media_files');
-                if (fileInput && fileInput.files.length > 0) {
-                    uploadSpinner.classList.remove('hidden');
-                    uploadButton.disabled = true;
-                    uploadButton.textContent = 'Uploading...';
-                } else {
-                    event.preventDefault(); // Prevent submission if no files
-                    // Consider a more user-friendly way to show this message if flash messages aren't visible here.
-                    // For now, relying on browser's default behavior for required fields.
-                    console.warn("Upload attempt with no files selected.");
-                }
-            });
-        }
-         const cleanupMissingDbForm = document.getElementById('cleanup-missing-db-form');
-         if (cleanupMissingDbForm) {
-             cleanupMissingDbForm.addEventListener('submit', function(event) {
-                 const count = cleanupMissingDbForm.querySelectorAll('input[name="missing_media_ids"]').length;
-                 if (!confirm(`Are you sure you want to remove ${count} database entries for media with missing files? This cannot be undone.`)) { event.preventDefault(); }
-             });
-         }
-         const cleanupUnexpectedItemsForm = document.getElementById('cleanup-unexpected-items-form');
-         if (cleanupUnexpectedItemsForm) {
-              const orphanedUuidCount = {{ orphaned_uuid_files|length }};
-              const unexpectedFilesCount = {{ unexpected_files|length }};
-              const unexpectedDirsCount = {{ unexpected_dirs|length }};
-              const totalItemsToDelete = orphanedUuidCount + unexpectedFilesCount + unexpectedDirsCount;
-             cleanupUnexpectedItemsForm.addEventListener('submit', function(event) {
-                 if (totalItemsToDelete > 0) {
-                     let confirmMsg = `Are you sure you want to permanently delete ${totalItemsToDelete} unexpected item(s) from the disk?`;
-                     if (unexpectedDirsCount > 0) { confirmMsg += `\n\nWARNING: This includes ${unexpectedDirsCount} director(y/ies) and ALL their contents!`; }
-                     confirmMsg += `\n\nThis cannot be undone.`;
-                     if (!confirm(confirmMsg)) { event.preventDefault(); }
-                 } else { event.preventDefault(); }
-             });
-         }
-    });
-</script>
+<script src="{{ url_for('static', filename='js/media_management.js') }}"></script>
 {% endblock %}

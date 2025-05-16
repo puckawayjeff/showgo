@@ -1,7 +1,7 @@
 // static/js/slideshow.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM Loaded. Initializing slideshow script (v3.2 - Overlay Branding Final)...");
+    console.log("DOM Loaded. Initializing slideshow script (testing)...");
 
     // --- DOM Element References ---
     const slideshowContainer = document.getElementById('slideshow-container');
@@ -45,6 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const videoLoop = slideshowConfig.video_loop ?? false;
     const videoMuted = slideshowConfig.video_muted ?? true;
     const videoShowControls = slideshowConfig.video_show_controls ?? false;
+
+    // --- Video advanced settings ---
+    const videoDurationLimitEnabled = slideshowConfig.video_duration_limit_enabled ?? false;
+    const videoDurationLimitSeconds = slideshowConfig.video_duration_limit_seconds ?? 30;
+    const videoRandomStartEnabled = slideshowConfig.video_random_start_enabled ?? false;
+    let videoDurationTimeoutId = null;
 
     const timeEnabled = widgetConfig.time?.enabled ?? true;
     const rssIsEnabled = widgetConfig.rss?.enabled ?? false;
@@ -316,27 +322,81 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 tempImg.src = mediaUrl;
             } else if (currentItem.type === 'video') {
-                imageElement.style.display = 'none'; videoElement.style.display = 'block';
-                videoElement.style.objectFit = videoScaling; videoElement.src = mediaUrl;
-                videoElement.autoplay = videoAutoplay; videoElement.loop = videoLoop;
-                videoElement.muted = videoMuted; videoElement.controls = videoShowControls;
-                videoElement.load(); // Necessary to apply new src
+                imageElement.style.display = 'none';
+                videoElement.style.display = 'block';
+                videoElement.style.objectFit = videoScaling;
+                videoElement.src = mediaUrl;
+                videoElement.autoplay = videoAutoplay;
+                videoElement.loop = videoLoop;
+                videoElement.muted = videoMuted;
+                videoElement.controls = videoShowControls;
+                videoElement.load();
+
+                if (videoDurationTimeoutId) { clearTimeout(videoDurationTimeoutId); videoDurationTimeoutId = null; }
+
+                // Handler for when metadata is loaded (duration is known)
+                const loadedMetadataHandler = () => {
+                    console.log('loadedmetadata fired', {
+                        duration: videoElement.duration,
+                        videoDurationLimitEnabled,
+                        videoRandomStartEnabled,
+                        videoDurationLimitSeconds
+                    });
+                    videoElement.removeEventListener('loadedmetadata', loadedMetadataHandler);
+                    // Random start logic
+                    if (videoRandomStartEnabled && videoDurationLimitEnabled) {
+                        const duration = videoElement.duration;
+                        if (!isNaN(duration) && duration > videoDurationLimitSeconds) {
+                            const maxStart = duration - videoDurationLimitSeconds;
+                            const randomStart = Math.random() * maxStart;
+                            console.log('Setting random start time:', randomStart);
+                            videoElement.currentTime = randomStart;
+                        } else {
+                            console.log('Random start skipped: invalid duration or duration too short');
+                        }
+                    } else {
+                        console.log('Random start not enabled');
+                    }
+                };
+
+                // Handler for when video can play
                 const canPlayHandler = () => {
-                    videoElement.removeEventListener('canplay', canPlayHandler); videoElement.removeEventListener('error', errorHandler);
-                    videoElement.classList.add('active'); isTransitioning = false;
+                    console.log('canPlayHandler fired');
+                    videoElement.removeEventListener('canplay', canPlayHandler);
+                    videoElement.removeEventListener('error', errorHandler);
+                    videoElement.classList.add('active');
+                    isTransitioning = false;
                     console.log(`[Slideshow] Video ready: ${currentItem.filename}`);
-                    if (videoAutoplay) { videoElement.play().catch(e => console.warn(`Autoplay for ${currentItem.filename} prevented:`, e)); }
-                    if (videoLoop) { // If looping, set a timeout based on imageDuration as a fallback
+
+                    if (videoAutoplay) {
+                        videoElement.play().catch(e => console.warn(`Autoplay for ${currentItem.filename} prevented:`, e));
+                    }
+
+                    // Duration limit logic
+                    if (videoDurationLimitEnabled) {
+                        console.log('Setting duration limit timeout for', videoDurationLimitSeconds, 'seconds');
+                        videoDurationTimeoutId = setTimeout(() => {
+                            console.log('Duration limit reached, advancing to next media');
+                            videoElement.pause();
+                            videoElement.classList.remove('active');
+                            showNextMedia();
+                        }, videoDurationLimitSeconds * 1000);
+                    } else if (videoLoop) {
                         slideshowTimeoutId = setTimeout(showNextMedia, imageDuration);
                     }
+
                     preloadMedia((currentMediaIndex + 1) % mediaItems.length).catch(err => console.warn(`[Preload] Video related preload failed`, err));
                 };
+
                 const errorHandler = (e) => {
-                    videoElement.removeEventListener('canplay', canPlayHandler); videoElement.removeEventListener('error', errorHandler);
-                    console.error(`[Slideshow] Failed to load video: ${currentItem.filename}`, e);
-                    videoElement.classList.remove('active'); isTransitioning = false;
+                    videoElement.removeEventListener('canplay', canPlayHandler);
+                    videoElement.removeEventListener('error', errorHandler);
+                    videoElement.classList.remove('active');
+                    isTransitioning = false;
                     slideshowTimeoutId = setTimeout(showNextMedia, 100); // Try next quickly
                 };
+
+                videoElement.addEventListener('loadedmetadata', loadedMetadataHandler);
                 videoElement.addEventListener('canplay', canPlayHandler);
                 videoElement.addEventListener('error', errorHandler);
             } else {
@@ -350,6 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!videoLoop && videoElement.classList.contains('active')) { // Only if not looping and is the active element
             console.log(`[Slideshow] Video ended: ${mediaItems[currentMediaIndex]?.filename}. Advancing.`);
             if (slideshowTimeoutId) clearTimeout(slideshowTimeoutId); slideshowTimeoutId = null;
+            if (videoDurationTimeoutId) { clearTimeout(videoDurationTimeoutId); videoDurationTimeoutId = null; }
             setTimeout(showNextMedia, 50); // Short delay before showing next media
         }
     });
