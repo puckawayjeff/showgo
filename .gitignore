@@ -5,9 +5,10 @@ __pycache__/
 # Uploaded Media & Thumbnails
 uploads/
 thumbnails/
+showgo/static/assets/overlay_logo.png
 
 # Configuration
-config/config.json
+instance/showgo.db
 
 # Compiled Python files
 *.pyc

@@ -18,13 +18,17 @@ __pycache__/
 uploads/
 thumbnails/
 instance/
-
-# Don't copy local config file into the image if it contains secrets
-# A default/template config could be copied instead, or rely on volume mount.
-config/config.json
+showgo/static/assets/overlay_logo.png
 
 # Other temporary/build files
 *.pyc
 *.pyo
 *.pyd
 *.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Python .env
+.env
